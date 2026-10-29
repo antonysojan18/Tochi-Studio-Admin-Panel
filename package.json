@@ -1,0 +1,41 @@
+{
+  "name": "tochi-labs-os",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "clean": "node -e \"try { require('fs').rmSync('.next', { recursive: true, force: true }); } catch (e) {}\"",
+    "predev": "node -e \"try { require('fs').rmSync('.next', { recursive: true, force: true }); } catch (e) {}\"",
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "next lint"
+  },
+  "dependencies": {
+    "@react-pdf/renderer": "^4.0.0",
+    "@supabase/supabase-js": "^2.45.6",
+    "clsx": "^2.1.1",
+    "date-fns": "^3.6.0",
+    "lucide-react": "^0.453.0",
+    "next": "14.2.15",
+    "nodemailer": "^10.3.1",
+    "papaparse": "^5.4.1",
+    "pdf-lib": "^1.17.1",
+    "qrcode": "^1.5.4",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "resend": "^4.0.0",
+    "tailwind-merge": "^2.5.4"
+  },
+  "devDependencies": {
+    "@types/node": "^20.17.0",
+    "@types/nodemailer": "^8.0.2",
+    "@types/papaparse": "^5.3.14",
+    "@types/qrcode": "^1.5.5",
+    "@types/react": "^18.3.12",
+    "@types/react-dom": "^18.3.1",
+    "autoprefixer": "^10.4.20",
+    "postcss": "^8.4.47",
+    "tailwindcss": "^3.4.14",
+    "typescript": "^5.6.3"
+  }
+}
