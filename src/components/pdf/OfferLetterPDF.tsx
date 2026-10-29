@@ -36,9 +36,9 @@ const styles = StyleSheet.create({
     borderBottomColor: '#E7DFD3',
   },
   logoImage: {
-    width: 68,
-    height: 68,
-    marginRight: 18,
+    width: 104,
+    height: 40,
+    marginRight: 16,
   },
   brandTitle: {
     fontSize: 20,

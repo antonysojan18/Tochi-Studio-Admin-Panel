@@ -154,23 +154,23 @@ export const HeaderBar: React.FC<HeaderBarProps> = ({
         {/* Top Level: Brand, Search, and Main Actions */}
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
           {/* Left: Brand with Official Uploaded Logo */}
-          <div className="flex items-center gap-3">
-            <div className="flex items-center justify-center bg-[#3B0D1C]/60 border border-white/15 rounded-lg px-2 py-1 shadow-inner">
+          <div className="flex items-center gap-3.5">
+            <div className="flex items-center justify-center bg-[#3B0D1C]/80 border border-white/20 rounded-xl px-3 py-1.5 shadow-inner">
               <Image
                 src="/assets/tochi-logo-light.png"
                 alt="Tochi Labs Official Logo"
-                width={110}
-                height={34}
+                width={160}
+                height={62}
                 priority
-                className="h-8 sm:h-9 w-auto object-contain"
+                className="h-11 sm:h-12 w-auto object-contain"
               />
             </div>
 
             <div>
-              <h1 className="text-lg font-bold tracking-tight text-[#FAF6F0] font-mono">
-                Tochi <span className="text-[#FAF6F0]/80 font-sans font-semibold">.dev Studio</span>
+              <h1 className="text-lg sm:text-xl font-bold tracking-tight text-[#FAF6F0] font-mono leading-tight">
+                Tochi <span className="text-[#FAF6F0]/85 font-sans font-semibold">.dev Studio</span>
               </h1>
-              <p className="text-[11px] text-[#FAF6F0]/70 font-sans">
+              <p className="text-[11px] text-[#FAF6F0]/70 font-sans mt-0.5">
                 Internship Operations &amp; Certificate Automation Engine
               </p>
             </div>

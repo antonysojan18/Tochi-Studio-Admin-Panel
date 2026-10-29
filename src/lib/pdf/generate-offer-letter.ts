@@ -52,8 +52,9 @@ export async function generateOfferLetterPdf(fellow: Fellow, hostUrl?: string): 
   });
 
   // 2. Embed Official TOCHI Logo (Bigger & Cleaner)
-  // Logo size increased from 68 to 86 pt
-  const logoSize = 86;
+  // 2. Official TOCHI /LABS Brand Logo
+  const logoWidth = 120;
+  const logoHeight = Math.round(logoWidth * (168 / 434)); // ~46 pt
   const headerTopY = height - 42;
   try {
     const logoPath = path.join(process.cwd(), 'public', 'assets', 'tochi-logo.png');
@@ -62,9 +63,9 @@ export async function generateOfferLetterPdf(fellow: Fellow, hostUrl?: string): 
       const logoImage = await pdfDoc.embedPng(logoBytes);
       page.drawImage(logoImage, {
         x: 48,
-        y: headerTopY - logoSize + 4,
-        width: logoSize,
-        height: logoSize,
+        y: headerTopY - logoHeight - 6,
+        width: logoWidth,
+        height: logoHeight,
       });
     }
   } catch (err) {
@@ -72,18 +73,18 @@ export async function generateOfferLetterPdf(fellow: Fellow, hostUrl?: string): 
   }
 
   // 3. Header Text beside Logo
-  const textLeftX = 48 + logoSize + 16; // 150 pt
+  const textLeftX = 48 + logoWidth + 18; // ~186 pt
   page.drawText('Tochi .dev Studio', {
     x: textLeftX,
-    y: headerTopY - 20,
-    size: 22,
+    y: headerTopY - 18,
+    size: 21,
     font: fontHelveticaBold,
     color: colorBurgundy,
   });
 
   page.drawText('Autonomous Systems | Digital Engineering | AI Architecture', {
     x: textLeftX,
-    y: headerTopY - 38,
+    y: headerTopY - 36,
     size: 9.5,
     font: fontHelvetica,
     color: colorDarkText,
@@ -91,14 +92,14 @@ export async function generateOfferLetterPdf(fellow: Fellow, hostUrl?: string): 
 
   page.drawText('Govt. of India MSME Registered | tochi.devstudio@gmail.com', {
     x: textLeftX,
-    y: headerTopY - 54,
+    y: headerTopY - 52,
     size: 8,
     font: fontCourier,
     color: colorMuted,
   });
 
   // Horizontal Divider Line below Header
-  let cursorY = headerTopY - logoSize - 8; // ~706 pt
+  let cursorY = headerTopY - logoHeight - 20; // ~734 pt
   page.drawLine({
     start: { x: 48, y: cursorY },
     end: { x: width - 48, y: cursorY },

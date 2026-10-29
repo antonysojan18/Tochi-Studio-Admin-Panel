@@ -121,16 +121,16 @@ function LoginForm() {
   };
 
   return (
-    <div className="bg-[#FAF6F0] rounded-3xl border border-[#E7DFD3] p-8 sm:p-12 shadow-2xl max-w-sm w-full mx-auto">
+    <div className="bg-[#FAF6F0] rounded-3xl border border-[#E7DFD3] p-8 sm:p-12 shadow-2xl max-w-md w-full mx-auto">
       {/* Big Logo */}
       <div className="flex justify-center mb-8">
         <Image
           src="/assets/tochi-logo.png"
           alt="Tochi Labs"
-          width={220}
-          height={75}
+          width={280}
+          height={110}
           priority
-          className="h-16 sm:h-20 w-auto object-contain"
+          className="h-20 sm:h-24 w-auto object-contain"
         />
       </div>
 
