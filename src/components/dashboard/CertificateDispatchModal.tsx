@@ -282,13 +282,15 @@ export const CertificateDispatchModal: React.FC<CertificateDispatchModalProps> =
                   <div>
                     <span className="font-medium">Active Certificate on File</span>
                     <span className="text-[11px] text-blue-700 block font-mono">
-                      {fellow.certificate_url}
+                      {fellow.certificate_url?.startsWith('data:') 
+                        ? `Custom Signed PDF (${fellow.student_id})` 
+                        : (fellow.certificate_url || `/api/pdf/certificate/${fellow.id}`)}
                     </span>
                   </div>
                 </div>
 
                 <a
-                  href={fellow.certificate_url || `/api/pdf/certificate/${fellow.id}`}
+                  href={`/api/pdf/certificate/${fellow.id}`}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-[11px] font-medium bg-white text-blue-900 border border-blue-200 hover:bg-blue-50 transition-colors"

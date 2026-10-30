@@ -67,3 +67,37 @@ npm run dev
   - **Password:** `antony.18`
 - **Command Center:** [http://localhost:3000/dashboard](http://localhost:3000/dashboard)
 - **Public Verification:** [http://localhost:3000/verify](http://localhost:3000/verify)
+
+---
+
+## ☁️ 4. Vercel Deployment Guide
+
+Deploying **Tochi .dev Studio OS** to Vercel takes less than 2 minutes:
+
+### Step 1: Import Project into Vercel
+1. Go to [vercel.com/new](https://vercel.com/new).
+2. Connect your GitHub account and select **`antonysojan18/Tochi-Studio-Admin-Panel`**.
+3. Framework Preset: **Next.js** (auto-detected).
+4. Root Directory: **`./`** (default).
+
+### Step 2: Configure Environment Variables
+In the Vercel project configuration screen, open the **Environment Variables** section and add the following keys (from your `.env.local`):
+
+| Variable Name | Description | Example / Source |
+|---|---|---|
+| `NEXT_PUBLIC_SUPABASE_URL` | Supabase Project URL | `https://lfrgpiohvjilxkgvfdhr.supabase.co` |
+| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Supabase Anon Key | `eyJhbGciOi...` |
+| `SUPABASE_SERVICE_ROLE_KEY` | Supabase Service Role Key | `eyJhbGciOi...` |
+| `GMAIL_USER` | Official Gmail Account | `tochi.devstudio@gmail.com` |
+| `GMAIL_APP_PASSWORD` | 16-character Google App Password | Generated from [Google App Passwords](https://myaccount.google.com/apppasswords) |
+| `STUDIO_EMAIL` | Sender Email | `tochi.devstudio@gmail.com` |
+| `STUDIO_FOUNDER` | Founder Signatory | `Antony Sojan` |
+| `STUDIO_MSME_REG` | Accreditation Status | `MSME Registered` |
+| `ADMIN_USERNAME` | Operator Username | `Admin` |
+| `ADMIN_PASSWORD` | Operator Security Key | `antony.18` |
+| `AUTH_SECRET` | 256-bit Random Secret Key | Generated string for HMAC tokens |
+
+### Step 3: Deploy & Verify
+1. Click **Deploy**. Vercel will build and assign a production URL (e.g., `https://tochi-studio-admin-panel.vercel.app`).
+2. Log in at `/login` with your configured operator credentials.
+3. Your database records from Supabase and direct Gmail dispatches will operate immediately.

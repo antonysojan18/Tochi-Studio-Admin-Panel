@@ -6,8 +6,10 @@ import { generateStudentId } from './id-generator';
 import { getSupabaseAdminClient, isSupabaseConfigured } from './supabase/client';
 import crypto from 'crypto';
 
-// Persistence path for file-based fallback store
-const DATA_DIR = path.join(process.cwd(), '.data');
+// Persistence path for file-based fallback store (handles Vercel serverless /tmp)
+const DATA_DIR = process.env.VERCEL
+  ? path.join('/tmp', '.data')
+  : path.join(process.cwd(), '.data');
 const DATA_FILE = path.join(DATA_DIR, 'fellows.json');
 
 // In-memory cache

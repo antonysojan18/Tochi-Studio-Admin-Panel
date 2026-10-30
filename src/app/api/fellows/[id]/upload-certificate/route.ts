@@ -37,27 +37,43 @@ export async function POST(
 
     // Clean safe filename based on student ID
     const safeStudentId = fellow.student_id.replace(/[^a-zA-Z0-9_-]/g, '_');
-    const uploadDir = path.join(process.cwd(), 'public', 'uploads', 'certificates');
-    if (!fs.existsSync(uploadDir)) {
-      fs.mkdirSync(uploadDir, { recursive: true });
+    const filename = `Certificate_${safeStudentId}.pdf`;
+
+    // Attempt local/tmp filesystem cache safely (prevents EROFS crashes on Vercel)
+    try {
+      const publicUploadDir = path.join(process.cwd(), 'public', 'uploads', 'certificates');
+      if (!fs.existsSync(publicUploadDir)) {
+        fs.mkdirSync(publicUploadDir, { recursive: true });
+      }
+      fs.writeFileSync(path.join(publicUploadDir, filename), buffer);
+    } catch {
+      try {
+        const tmpDir = path.join('/tmp', 'uploads', 'certificates');
+        if (!fs.existsSync(tmpDir)) {
+          fs.mkdirSync(tmpDir, { recursive: true });
+        }
+        fs.writeFileSync(path.join(tmpDir, filename), buffer);
+      } catch (err) {
+        // Filesystem is completely read-only on serverless; base64 persistence in DB will handle it
+      }
     }
 
-    const filename = `Certificate_${safeStudentId}.pdf`;
-    const targetPath = path.join(uploadDir, filename);
-    fs.writeFileSync(targetPath, buffer);
+    // Persist as high-fidelity Base64 data URL directly into database so it persists across Vercel Lambdas
+    const base64Data = buffer.toString('base64');
+    const persistentDataUrl = `data:application/pdf;base64,${base64Data}`;
 
-    const certificateUrl = `/uploads/certificates/${filename}`;
-
-    // Update fellow record
+    // Update fellow record in Supabase / store
     const updated = await updateFellow(fellow.id, {
-      certificate_url: certificateUrl,
+      certificate_url: persistentDataUrl,
       status: 'CERTIFIED',
     });
+
+    const publicEndpoint = `/api/pdf/certificate/${fellow.id}`;
 
     return NextResponse.json({
       success: true,
       message: 'Certificate PDF successfully uploaded and attached',
-      certificate_url: certificateUrl,
+      certificate_url: publicEndpoint,
       filename,
       sizeBytes: buffer.length,
       candidate: updated,

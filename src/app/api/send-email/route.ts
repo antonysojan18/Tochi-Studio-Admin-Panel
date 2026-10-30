@@ -51,21 +51,29 @@ export async function POST(req: NextRequest) {
       pdfFilename = `Certificate_${fellow.student_id}.pdf`;
 
       // Check if user uploaded a custom certificate PDF
-      let customUploadedPath = '';
-      if (fellow.certificate_url && fellow.certificate_url.startsWith('/uploads/certificates/')) {
-        customUploadedPath = path.join(process.cwd(), 'public', fellow.certificate_url);
+      if (fellow.certificate_url && fellow.certificate_url.startsWith('data:application/pdf;base64,')) {
+        const base64Data = fellow.certificate_url.replace(/^data:application\/pdf;base64,/, '');
+        pdfBuffer = Buffer.from(base64Data, 'base64');
       } else {
-        const safeStudentId = fellow.student_id.replace(/[^a-zA-Z0-9_-]/g, '_');
-        const defaultPath = path.join(process.cwd(), 'public', 'uploads', 'certificates', `Certificate_${safeStudentId}.pdf`);
-        if (fs.existsSync(defaultPath)) {
-          customUploadedPath = defaultPath;
+        let customUploadedPath = '';
+        if (fellow.certificate_url && fellow.certificate_url.startsWith('/uploads/certificates/')) {
+          customUploadedPath = path.join(process.cwd(), 'public', fellow.certificate_url);
+        } else {
+          const safeStudentId = fellow.student_id.replace(/[^a-zA-Z0-9_-]/g, '_');
+          const defaultPath = path.join(process.cwd(), 'public', 'uploads', 'certificates', `Certificate_${safeStudentId}.pdf`);
+          const tmpPath = path.join('/tmp', 'uploads', 'certificates', `Certificate_${safeStudentId}.pdf`);
+          if (fs.existsSync(defaultPath)) {
+            customUploadedPath = defaultPath;
+          } else if (fs.existsSync(tmpPath)) {
+            customUploadedPath = tmpPath;
+          }
         }
-      }
 
-      if (customUploadedPath && fs.existsSync(customUploadedPath)) {
-        pdfBuffer = fs.readFileSync(customUploadedPath);
-      } else {
-        pdfBuffer = await generateCertificatePdf(fellow, hostUrl);
+        if (customUploadedPath && fs.existsSync(customUploadedPath)) {
+          pdfBuffer = fs.readFileSync(customUploadedPath);
+        } else {
+          pdfBuffer = await generateCertificatePdf(fellow, hostUrl);
+        }
       }
 
       // Mark as certified
