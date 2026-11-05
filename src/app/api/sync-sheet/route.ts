@@ -17,12 +17,17 @@ async function processSync(sheetUrlToUse?: string, rawCsvInput?: string) {
   if (sheetUrl && sheetUrl.trim()) {
     let fetchUrl = sheetUrl.trim();
     
-    // Auto-convert standard Google Sheet sharing URL to CSV export format
-    if (fetchUrl.includes('docs.google.com/spreadsheets') && !fetchUrl.includes('/export?format=csv')) {
+    // 1. Handle "Publish to the web" links (e.g., .../pubhtml or .../pub)
+    if (fetchUrl.includes('/pubhtml')) {
+      fetchUrl = fetchUrl.replace('/pubhtml', '/pub?output=csv');
+    } else if (fetchUrl.includes('/pub?') && !fetchUrl.includes('output=csv')) {
+      fetchUrl = `${fetchUrl}&output=csv`;
+    } else if (fetchUrl.includes('docs.google.com/spreadsheets') && !fetchUrl.includes('/export?format=csv') && !fetchUrl.includes('/pub?output=csv')) {
+      // 2. Handle standard Google Sheet edit/view links
       const idMatch = fetchUrl.match(/\/d\/([a-zA-Z0-9-_]+)/);
       if (idMatch && idMatch[1]) {
         const sheetId = idMatch[1];
-        const gidMatch = fetchUrl.match(/gid=([0-9]+)/);
+        const gidMatch = fetchUrl.match(/[#?&]gid=([0-9]+)/);
         const gidPart = gidMatch ? `&gid=${gidMatch[1]}` : '';
         fetchUrl = `https://docs.google.com/spreadsheets/d/${sheetId}/export?format=csv${gidPart}`;
       }
@@ -40,6 +45,12 @@ async function processSync(sheetUrlToUse?: string, rawCsvInput?: string) {
     }
 
     rawCsvText = await res.text();
+
+    // Check if Google returned an HTML login page (private spreadsheet)
+    const trimmedLower = rawCsvText.trim().toLowerCase();
+    if (trimmedLower.startsWith('<!doctype html') || trimmedLower.startsWith('<html')) {
+      throw new Error("Google Sheet is private. In Google Sheets, click 'Share' > General access > select 'Anyone with the link can view'.");
+    }
   } else if (rawCsvInput) {
     rawCsvText = rawCsvInput;
   } else {
@@ -92,16 +103,16 @@ async function processSync(sheetUrlToUse?: string, rawCsvInput?: string) {
     return '';
   };
 
-  // Normalize candidate rows
+  // Normalize candidate rows with comprehensive Google Form headers mapping
   const normalizedCandidates = rows.map(row => {
-    const full_name = findValue(row, ['fullname', 'name', 'studentname', 'candidatename', 'applicantname']);
-    const email = findValue(row, ['email', 'emailaddress', 'mail', 'candidateemail']);
-    const phone = findValue(row, ['phone', 'phonenumber', 'whatsapp', 'whatsappnumber', 'mobile', 'contact', 'contactnumber']);
-    const college = findValue(row, ['college', 'university', 'institution', 'school']);
-    const track = findValue(row, ['track', 'domain', 'specialization', 'role', 'stream', 'program']);
-    const portfolio_url = findValue(row, ['portfolio', 'portfoliourl', 'github', 'githuburl', 'linkedin', 'website']);
-    const degree = findValue(row, ['degree', 'branch', 'course', 'major']);
-    const year_of_study = findValue(row, ['year', 'yearofstudy', 'graduationyear', 'batch']);
+    const full_name = findValue(row, ['fullname', 'name', 'studentname', 'candidatename', 'applicantname', 'yourname', 'whatisyourname']);
+    const email = findValue(row, ['email', 'emailaddress', 'mail', 'candidateemail', 'applicantemail', 'emailid']);
+    const phone = findValue(row, ['phone', 'phonenumber', 'whatsapp', 'whatsappnumber', 'mobile', 'contact', 'contactnumber', 'mobilenumber', 'phoneno']);
+    const college = findValue(row, ['college', 'university', 'institution', 'school', 'collegename', 'institute']);
+    const track = findValue(row, ['track', 'domain', 'specialization', 'role', 'stream', 'program', 'internshiptrack', 'domainofinterest', 'preferreddomain']);
+    const portfolio_url = findValue(row, ['portfolio', 'portfoliourl', 'github', 'githuburl', 'linkedin', 'website', 'link', 'projectlink', 'resume', 'cv']);
+    const degree = findValue(row, ['degree', 'branch', 'course', 'major', 'qualification', 'department']);
+    const year_of_study = findValue(row, ['year', 'yearofstudy', 'graduationyear', 'batch', 'currentyear']);
 
     return {
       full_name,

@@ -87,6 +87,7 @@ export default function DashboardPage() {
           const data = await res.json();
           if (data.success && data.insertedCount > 0) {
             fetchFellows();
+            showToast(`Auto-sync pulled ${data.insertedCount} new candidate${data.insertedCount > 1 ? 's' : ''}`, 'success');
           }
         }
       } catch {

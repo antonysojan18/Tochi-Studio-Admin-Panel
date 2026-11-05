@@ -11,7 +11,10 @@ import {
   FileCheck2, 
   Award, 
   LogOut,
-  X
+  X,
+  RefreshCw,
+  CheckCircle2,
+  AlertCircle
 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { Fellow } from '@/types/fellow';
@@ -45,6 +48,69 @@ export const HeaderBar: React.FC<HeaderBarProps> = ({
 
   // Universal Google Sheet URL state
   const [sheetUrl, setSheetUrl] = useState('');
+  const [isSyncing, setIsSyncing] = useState(false);
+  const [syncFeedback, setSyncFeedback] = useState<{
+    type: 'success' | 'error';
+    text: string;
+  } | null>(null);
+
+  // Manual Trigger: Pull candidates right now from Google Sheet
+  const handleSyncNow = async () => {
+    if (!sheetUrl.trim()) {
+      sheetInputRef.current?.focus();
+      return;
+    }
+
+    setIsSyncing(true);
+    setSyncFeedback(null);
+
+    try {
+      // 1. Immediately persist URL universally to backend
+      await fetch('/api/settings', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ key: 'google_sheet_url', value: sheetUrl.trim() }),
+      });
+
+      // 2. Fetch and ingest new candidates
+      const res = await fetch('/api/sync-sheet', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ sheetUrl: sheetUrl.trim() }),
+      });
+
+      const data = await res.json();
+      if (!res.ok || !data.success) {
+        throw new Error(data.error || 'Failed to sync Google Sheet');
+      }
+
+      if (onSyncSuccess) {
+        await onSyncSuccess();
+      }
+
+      if (data.insertedCount > 0) {
+        setSyncFeedback({
+          type: 'success',
+          text: `Pulled ${data.insertedCount} new candidate${data.insertedCount > 1 ? 's' : ''}!`,
+        });
+      } else {
+        setSyncFeedback({
+          type: 'success',
+          text: `All candidates up to date (${data.totalRows || 0} rows found)`,
+        });
+      }
+    } catch (err: any) {
+      setSyncFeedback({
+        type: 'error',
+        text: err.message || 'Sync failed. Check sheet link and sharing permissions.',
+      });
+    } finally {
+      setIsSyncing(false);
+      setTimeout(() => {
+        setSyncFeedback(null);
+      }, 5000);
+    }
+  };
 
   // 1. Load universal Google Sheet URL on mount across all devices
   useEffect(() => {
@@ -239,32 +305,81 @@ export const HeaderBar: React.FC<HeaderBarProps> = ({
           </div>
         </div>
 
-        {/* Minimal Google Sheet Link Box (Universal Across Devices & Auto-Synced in Backend) */}
+        {/* Google Sheet Live Strip with Sync Now Button & 30-Second Refresh Indicator */}
         <div className="mt-3 pt-3 border-t border-white/15">
-          <div className="relative flex items-center">
-            <div className="absolute left-3.5 top-1/2 -translate-y-1/2 flex items-center gap-2 pointer-events-none text-[#FAF6F0]/70">
-              <FileSpreadsheet className="h-4 w-4 text-[#FAF6F0]" />
-              <span className="text-[11px] font-mono font-medium hidden sm:inline text-[#FAF6F0]/80">Google Sheet:</span>
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2.5">
+            {/* Input Link Box */}
+            <div className="relative flex-1 flex items-center">
+              <div className="absolute left-3.5 top-1/2 -translate-y-1/2 flex items-center gap-2 pointer-events-none text-[#FAF6F0]/70">
+                <FileSpreadsheet className="h-4 w-4 text-[#FAF6F0]" />
+                <span className="text-[11px] font-mono font-medium hidden sm:inline text-[#FAF6F0]/80">Google Sheet:</span>
+              </div>
+              <input
+                ref={sheetInputRef}
+                type="url"
+                value={sheetUrl}
+                onChange={handleUrlChange}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
+                    handleSyncNow();
+                  }
+                }}
+                placeholder="Paste Google Sheets Public CSV or Share URL (e.g. https://docs.google.com/spreadsheets/d/...)"
+                className="w-full bg-[#3B0D1C]/80 border border-white/20 focus:border-white/60 focus:bg-[#3B0D1C] rounded-xl pl-10 sm:pl-36 pr-10 py-2.5 text-xs text-[#FAF6F0] placeholder:text-[#FAF6F0]/40 outline-none transition-all font-mono shadow-inner"
+              />
+              {sheetUrl && (
+                <button
+                  type="button"
+                  onClick={handleClearUrl}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-[#FAF6F0]/60 hover:text-white p-1 rounded transition-colors"
+                  title="Clear Google Sheet URL"
+                >
+                  <X className="h-3.5 w-3.5" />
+                </button>
+              )}
             </div>
-            <input
-              ref={sheetInputRef}
-              type="url"
-              value={sheetUrl}
-              onChange={handleUrlChange}
-              placeholder="Paste Google Sheets Public CSV or Share URL (e.g. https://docs.google.com/spreadsheets/d/...)"
-              className="w-full bg-[#3B0D1C]/80 border border-white/20 focus:border-white/60 focus:bg-[#3B0D1C] rounded-xl pl-10 sm:pl-36 pr-10 py-2.5 text-xs text-[#FAF6F0] placeholder:text-[#FAF6F0]/40 outline-none transition-all font-mono shadow-inner"
-            />
-            {sheetUrl && (
+
+            {/* Quick Actions & 30s Live Auto-Refresh Status */}
+            <div className="flex items-center gap-2 shrink-0">
+              {/* Sync Now Button */}
               <button
                 type="button"
-                onClick={handleClearUrl}
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-[#FAF6F0]/60 hover:text-white p-1 rounded transition-colors"
-                title="Clear Google Sheet URL"
+                onClick={handleSyncNow}
+                disabled={isSyncing || !sheetUrl.trim()}
+                className="inline-flex items-center justify-center gap-1.5 px-4 py-2.5 rounded-xl text-xs font-bold bg-[#FAF6F0] hover:bg-white text-[#541228] transition-all shadow-md active:scale-95 disabled:opacity-40 disabled:pointer-events-none"
+                title="Immediately pull new candidates from the Google Sheet"
               >
-                <X className="h-3.5 w-3.5" />
+                <RefreshCw className={`h-3.5 w-3.5 ${isSyncing ? 'animate-spin' : ''}`} />
+                <span>{isSyncing ? 'Syncing...' : 'Sync Now'}</span>
               </button>
-            )}
+
+              {/* 30s Live Refresh Indicator */}
+              <div 
+                className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-white/10 border border-white/15 text-[11px] font-mono text-[#FAF6F0]/85 select-none"
+                title="Continuous background sync runs every 30 seconds"
+              >
+                <span className="h-2 w-2 rounded-full bg-emerald-400 animate-pulse" />
+                <span className="hidden sm:inline">30s live sync</span>
+              </div>
+            </div>
           </div>
+
+          {/* Sync Feedback Message */}
+          {syncFeedback && (
+            <div className="mt-2 flex items-center gap-2 text-xs font-mono">
+              {syncFeedback.type === 'success' ? (
+                <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-emerald-500/20 text-emerald-200 border border-emerald-400/30">
+                  <CheckCircle2 className="h-3.5 w-3.5 text-emerald-400 shrink-0" />
+                  <span>{syncFeedback.text}</span>
+                </span>
+              ) : (
+                <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-rose-500/20 text-rose-200 border border-rose-400/30">
+                  <AlertCircle className="h-3.5 w-3.5 text-rose-400 shrink-0" />
+                  <span>{syncFeedback.text}</span>
+                </span>
+              )}
+            </div>
+          )}
         </div>
       </div>
     </header>
