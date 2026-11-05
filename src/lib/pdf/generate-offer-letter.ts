@@ -306,8 +306,8 @@ export async function generateOfferLetterPdf(fellow: Fellow, hostUrl?: string): 
   });
 
   // Right: Live Verification QR Code
-  const baseUrl = hostUrl || 'https://tochidevstudio.in';
-  const verifyUrl = `${baseUrl}/verify?hash=${fellow.qr_verify_hash}`;
+  // Point directly to the official public verification page at https://www.tochidevstudio.in/verify (not admin)
+  const verifyUrl = `https://www.tochidevstudio.in/verify?hash=${fellow.qr_verify_hash}`;
   const qrDataUrl = await QRCode.toDataURL(verifyUrl, {
     margin: 1,
     width: 140,
@@ -351,7 +351,7 @@ export async function generateOfferLetterPdf(fellow: Fellow, hostUrl?: string): 
     color: colorBorder,
   });
 
-  page.drawText('Official Internship Appointment Document issued by Tochi .dev Studio. Verify live at tochidevstudio.in/verify', {
+  page.drawText('Official Internship Appointment Document issued by Tochi .dev Studio. Verify live at https://www.tochidevstudio.in/verify', {
     x: 48,
     y: 35,
     size: 6.5,

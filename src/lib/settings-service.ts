@@ -89,3 +89,4 @@ export async function setSetting(key: string, value: string): Promise<boolean> {
   saveLocalSettings(local);
   return true;
 }
+

@@ -16,9 +16,9 @@ export function getEmailSubject(type: EmailTemplateType, fellow: Fellow): string
   }
 }
 
-export function generateEmailHtml(type: EmailTemplateType, fellow: Fellow, hostUrl: string = 'https://tochidevstudio.in'): string {
+export function generateEmailHtml(type: EmailTemplateType, fellow: Fellow, hostUrl: string = 'https://www.tochidevstudio.in'): string {
   const trackInfo = TRACK_DETAILS[fellow.track] || { label: fellow.track, shortLabel: fellow.track, code: 'DEV' };
-  const verifyLink = `${hostUrl}/verify?hash=${fellow.qr_verify_hash}`;
+  const verifyLink = `https://www.tochidevstudio.in/verify?hash=${fellow.qr_verify_hash}`;
   const googleFormSubmissionLink = `https://forms.gle/tochi-labs-sprint-submission?entry.student_id=${encodeURIComponent(fellow.student_id)}&entry.name=${encodeURIComponent(fellow.full_name)}&entry.track=${encodeURIComponent(trackInfo.label)}`;
 
   const brandHeader = `

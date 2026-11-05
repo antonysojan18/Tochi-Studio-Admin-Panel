@@ -16,11 +16,11 @@ export function cleanPhoneNumber(phone: string): string {
 export function generateWhatsAppLink(
   fellow: Fellow,
   type: WhatsAppMessageType,
-  hostUrl: string = 'https://tochidevstudio.in'
+  hostUrl: string = 'https://www.tochidevstudio.in'
 ): string {
   const phone = cleanPhoneNumber(fellow.phone);
   const trackInfo = TRACK_DETAILS[fellow.track] || { label: fellow.track, shortLabel: fellow.track };
-  const verifyUrl = `${hostUrl}/verify?hash=${fellow.qr_verify_hash}`;
+  const verifyUrl = `https://www.tochidevstudio.in/verify?hash=${fellow.qr_verify_hash}`;
 
   let text = '';
 
