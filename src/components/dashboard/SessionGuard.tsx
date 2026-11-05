@@ -26,23 +26,15 @@ export const SessionGuard = () => {
   };
 
   useEffect(() => {
-    // 1. Re-login on every dashboard entrance: Verify active tab session
+    // 1. Re-login when browser tab was closed and re-opened:
+    // sessionStorage is automatically wiped by the browser on tab closure, but survives page refresh.
     const isSessionActive = typeof window !== 'undefined' && sessionStorage.getItem('tochi_auth_session') === 'active';
     if (!isSessionActive) {
       performAutoLogout('reauth');
       return;
     }
 
-    // 2. Auto-logout on tab close or page navigation
-    const handleUnload = () => {
-      try {
-        sessionStorage.removeItem('tochi_auth_session');
-        navigator.sendBeacon('/api/auth/logout');
-      } catch {}
-    };
-    window.addEventListener('beforeunload', handleUnload);
-
-    // 3. User activity monitor for idle timeout
+    // 2. User activity monitor for 15-minute idle timeout
     const events = ['mousemove', 'mousedown', 'keydown', 'scroll', 'touchstart'];
     const handleActivity = () => {
       resetTimer();
@@ -62,7 +54,6 @@ export const SessionGuard = () => {
       events.forEach((evt) => {
         window.removeEventListener(evt, handleActivity);
       });
-      window.removeEventListener('beforeunload', handleUnload);
     };
   }, []);
 
