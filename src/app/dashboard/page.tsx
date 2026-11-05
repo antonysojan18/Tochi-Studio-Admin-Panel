@@ -78,6 +78,23 @@ export default function DashboardPage() {
 
   useEffect(() => {
     fetchFellows();
+
+    // 30-second live background sync (runs silently in the backend)
+    const intervalId = setInterval(async () => {
+      try {
+        const res = await fetch('/api/sync-sheet');
+        if (res.ok) {
+          const data = await res.json();
+          if (data.success && data.insertedCount > 0) {
+            fetchFellows();
+          }
+        }
+      } catch {
+        // Silent background polling
+      }
+    }, 30000);
+
+    return () => clearInterval(intervalId);
   }, []);
 
   // Update Status

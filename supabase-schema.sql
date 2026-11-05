@@ -71,10 +71,19 @@ create policy "Allow service role full operations" on public.fellows
     with check (true);
 
 -- 6. Initial Seed Candidates (Optional verification test records)
-insert into public.fellows (
-    student_id, full_name, email, phone, college, degree, year_of_study, track, status, cohort_start_date, cohort_end_date, qr_verify_hash
-) values
-    ('TCL-26Q4-WEB-0001', 'Aarav Sharma', 'aarav.sharma@example.com', '+919876543210', 'IIT Madras', 'B.Tech CS', '3rd Year', 'AI_WEB_DEV', 'IN_SPRINT', '2026-10-15', '2026-11-12', '9a8b7c6d5e4f3a2b1c0d9e8f7a6b5c4d'),
-    ('TCL-26Q4-UIUX-0001', 'Ananya Iyer', 'ananya.iyer@example.com', '+919812345678', 'NID Ahmedabad', 'B.Des Interaction', '4th Year', 'GEN_UIUX', 'CERTIFIED', '2026-09-15', '2026-10-13', '1a2b3c4d5e6f7a8b9c0d1e2f3a4b5c6d')
-on conflict (student_id) do nothing;
+-- 7. App Settings Table (Universal Google Sheet URL & System Configurations)
+create table if not exists public.app_settings (
+    key text primary key,
+    value text not null default '',
+    updated_at timestamp with time zone default now()
+);
+
+alter table public.app_settings enable row level security;
+
+drop policy if exists "Allow all operations on app_settings" on public.app_settings;
+create policy "Allow all operations on app_settings" on public.app_settings
+    for all
+    using (true)
+    with check (true);
+
 

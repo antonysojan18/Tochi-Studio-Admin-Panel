@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useRef } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import Image from 'next/image';
 import { 
   Search, 
@@ -9,14 +9,9 @@ import {
   Users, 
   Flame, 
   FileCheck2, 
-  Award,
+  Award, 
   LogOut,
-  RefreshCw,
-  CheckCircle2,
-  AlertCircle,
-  Link2,
-  ChevronDown,
-  ChevronUp
+  X
 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { Fellow } from '@/types/fellow';
@@ -31,22 +26,16 @@ interface HeaderBarProps {
   onSyncSuccess?: () => Promise<void>;
 }
 
-const SAMPLE_CSV = `Full Name,Email,WhatsApp,College,Track,Degree,Year
-Vikramaditya Rao,vikram.rao@example.com,+919876501234,IIT Bombay,AI_WEB_DEV,B.Tech Computer Science,4th Year
-Meera Krishnan,meera.k@example.com,+919845012345,BITS Pilani,GEN_UIUX,B.Des Interaction Design,3rd Year
-Siddharth Varma,siddharth.v@example.com,+919933012345,NIT Trichy,AUTOMATION,B.Tech ECE,4th Year`;
-
 export const HeaderBar: React.FC<HeaderBarProps> = ({
   fellows,
   searchQuery,
   onSearchChange,
-  onOpenSyncModal,
   onOpenAddModal,
-  isSupabaseLive = true,
   onSyncSuccess,
 }) => {
   const router = useRouter();
   const sheetInputRef = useRef<HTMLInputElement>(null);
+  const saveDebounceRef = useRef<NodeJS.Timeout | null>(null);
 
   // Real-time stats
   const total = fellows.length;
@@ -54,16 +43,20 @@ export const HeaderBar: React.FC<HeaderBarProps> = ({
   const submitted = fellows.filter(f => f.status === 'SUBMITTED').length;
   const certified = fellows.filter(f => f.status === 'CERTIFIED').length;
 
-  // Inline Google Sheets Sync State
+  // Universal Google Sheet URL state
   const [sheetUrl, setSheetUrl] = useState('');
-  const [isSyncing, setIsSyncing] = useState(false);
-  const [showRawCsv, setShowRawCsv] = useState(false);
-  const [rawCsvContent, setRawCsvContent] = useState('');
-  const [syncStatus, setSyncStatus] = useState<{
-    type: 'success' | 'error';
-    text: string;
-    details?: string;
-  } | null>(null);
+
+  // 1. Load universal Google Sheet URL on mount across all devices
+  useEffect(() => {
+    fetch('/api/settings?key=google_sheet_url')
+      .then(res => res.json())
+      .then(data => {
+        if (data.success && typeof data.value === 'string') {
+          setSheetUrl(data.value);
+        }
+      })
+      .catch(() => {});
+  }, []);
 
   const handleLogout = async () => {
     try {
@@ -79,77 +72,60 @@ export const HeaderBar: React.FC<HeaderBarProps> = ({
     }
   };
 
-  const handleInlineSync = async () => {
-    if (!sheetUrl.trim() && !rawCsvContent.trim()) {
-      sheetInputRef.current?.focus();
-      setSyncStatus({
-        type: 'error',
-        text: 'Please paste a Google Sheets public URL or enter CSV data',
-      });
-      return;
+  // 2. Auto-save sheet URL universally to backend database & trigger initial background ingestion
+  const handleUrlChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const nextVal = e.target.value;
+    setSheetUrl(nextVal);
+
+    if (saveDebounceRef.current) {
+      clearTimeout(saveDebounceRef.current);
     }
 
-    setIsSyncing(true);
-    setSyncStatus(null);
+    saveDebounceRef.current = setTimeout(async () => {
+      try {
+        await fetch('/api/settings', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ key: 'google_sheet_url', value: nextVal.trim() }),
+        });
 
-    try {
-      const payload = showRawCsv && rawCsvContent.trim()
-        ? { csvContent: rawCsvContent.trim() }
-        : { sheetUrl: sheetUrl.trim() };
-
-      const res = await fetch('/api/sync-sheet', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload),
-      });
-
-      const data = await res.json();
-
-      if (!res.ok || !data.success) {
-        throw new Error(data.error || 'Failed to sync Google Sheet');
+        // Trigger immediate background sync
+        if (nextVal.trim()) {
+          const syncRes = await fetch('/api/sync-sheet', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ sheetUrl: nextVal.trim() }),
+          });
+          const syncData = await syncRes.json();
+          if (syncData.success && syncData.insertedCount > 0 && onSyncSuccess) {
+            await onSyncSuccess();
+          }
+        }
+      } catch {
+        // Silent background execution
       }
-
-      setSyncStatus({
-        type: 'success',
-        text: `Ingested ${data.insertedCount} new student(s).`,
-        details: data.skippedCount > 0 
-          ? `(${data.skippedCount} duplicate email(s) skipped)`
-          : undefined,
-      });
-
-      if (onSyncSuccess) {
-        await onSyncSuccess();
-      }
-
-      if (!showRawCsv) {
-        setSheetUrl('');
-      } else {
-        setRawCsvContent('');
-      }
-
-      setTimeout(() => {
-        setSyncStatus(null);
-      }, 5000);
-    } catch (err: any) {
-      setSyncStatus({
-        type: 'error',
-        text: err.message || 'Error syncing Google Sheet',
-      });
-    } finally {
-      setIsSyncing(false);
-    }
+    }, 600);
   };
 
-  const handleLoadSample = () => {
-    setShowRawCsv(true);
-    setRawCsvContent(SAMPLE_CSV);
-    setSyncStatus(null);
+  // 3. Clear button: Clears the input and purges URL from database universally
+  const handleClearUrl = async () => {
+    setSheetUrl('');
+    if (saveDebounceRef.current) {
+      clearTimeout(saveDebounceRef.current);
+    }
+    try {
+      await fetch('/api/settings', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ key: 'google_sheet_url', value: '' }),
+      });
+    } catch {}
   };
 
   return (
     <header className="w-full border-b border-[#3B0D1C] bg-[#541228] text-[#FAF6F0] shadow-md">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3.5">
-        {/* Top Level: Brand, Search, and Main Actions */}
+        {/* Top Level: Brand, Universal Search, and Add Student / Logout */}
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
           {/* Left: Brand with Official Uploaded Logo */}
           <div className="flex items-center gap-3.5">
@@ -174,7 +150,7 @@ export const HeaderBar: React.FC<HeaderBarProps> = ({
             </div>
           </div>
 
-          {/* Middle: Universal Search (Styled for Burgundy Background) */}
+          {/* Middle: Universal Search */}
           <div className="flex-1 max-w-md relative">
             <div className="relative">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-[#FAF6F0]/60" />
@@ -191,7 +167,7 @@ export const HeaderBar: React.FC<HeaderBarProps> = ({
             </div>
           </div>
 
-          {/* Right: Quick Action Buttons (High Contrast on Burgundy) */}
+          {/* Right: Quick Action Buttons */}
           <div className="flex items-center gap-2 flex-wrap sm:flex-nowrap">
             <button
               onClick={onOpenAddModal}
@@ -212,21 +188,16 @@ export const HeaderBar: React.FC<HeaderBarProps> = ({
           </div>
         </div>
 
-        {/* Quick Stats Grid ("Tabs" on Burgundy Base) */}
+        {/* Quick Stats Grid */}
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mt-3.5 pt-3 border-t border-white/15">
-          {/* Stat 1: Total Students (Clickable to focus sync input) */}
+          {/* Stat 1: Total Students */}
           <div 
             onClick={() => sheetInputRef.current?.focus()}
             className="bg-[#3B0D1C]/80 hover:bg-[#3B0D1C] border border-white/25 rounded-lg p-3 flex items-center justify-between cursor-pointer transition-all shadow-sm group"
-            title="Click to paste Google Sheet URL below"
+            title="Focus Google Sheet URL below"
           >
             <div>
-              <div className="flex items-center gap-1.5">
-                <p className="text-[10px] font-semibold uppercase tracking-wider text-[#FAF6F0]/80">Total Students</p>
-                <span className="text-[9px] font-mono text-[#FAF6F0] bg-white/20 px-1.5 py-0.2 rounded group-hover:bg-white group-hover:text-[#541228] transition-colors">
-                  Sheet Sync
-                </span>
-              </div>
+              <p className="text-[10px] font-semibold uppercase tracking-wider text-[#FAF6F0]/80">Total Students</p>
               <p className="text-xl font-bold font-mono text-[#FAF6F0] mt-0.5">{total}</p>
             </div>
             <div className="h-8 w-8 rounded-md bg-white/10 border border-white/15 flex items-center justify-center text-[#FAF6F0] group-hover:bg-white group-hover:text-[#541228] transition-colors">
@@ -268,121 +239,30 @@ export const HeaderBar: React.FC<HeaderBarProps> = ({
           </div>
         </div>
 
-        {/* Google Sheets Public CSV or Share URL Section (Directly Under Total Students Tab) */}
-        <div className="mt-3 pt-3 border-t border-white/15 bg-white text-tochi-text rounded-xl p-3 sm:p-3.5 border border-tochi-border shadow-elevated">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-2">
-            <div className="flex items-center gap-2">
-              <div className="h-6 w-6 rounded bg-[#541228]/10 text-[#541228] flex items-center justify-center">
-                <FileSpreadsheet className="h-3.5 w-3.5" />
-              </div>
-              <div>
-                <span className="text-xs font-semibold text-tochi-text tracking-tight">
-                  Google Sheets Public CSV or Share URL
-                </span>
-                <span className="hidden sm:inline text-[11px] text-tochi-text-muted ml-2">
-                  (Under Total Students Ingestion Node)
-                </span>
-              </div>
+        {/* Minimal Google Sheet Link Box (Universal Across Devices & Auto-Synced in Backend) */}
+        <div className="mt-3 pt-3 border-t border-white/15">
+          <div className="relative flex items-center">
+            <div className="absolute left-3.5 top-1/2 -translate-y-1/2 flex items-center gap-2 pointer-events-none text-[#FAF6F0]/70">
+              <FileSpreadsheet className="h-4 w-4 text-[#FAF6F0]" />
+              <span className="text-[11px] font-mono font-medium hidden sm:inline text-[#FAF6F0]/80">Google Sheet:</span>
             </div>
-
-            <div className="flex items-center gap-2 text-xs">
+            <input
+              ref={sheetInputRef}
+              type="url"
+              value={sheetUrl}
+              onChange={handleUrlChange}
+              placeholder="Paste Google Sheets Public CSV or Share URL (e.g. https://docs.google.com/spreadsheets/d/...)"
+              className="w-full bg-[#3B0D1C]/80 border border-white/20 focus:border-white/60 focus:bg-[#3B0D1C] rounded-xl pl-10 sm:pl-36 pr-10 py-2.5 text-xs text-[#FAF6F0] placeholder:text-[#FAF6F0]/40 outline-none transition-all font-mono shadow-inner"
+            />
+            {sheetUrl && (
               <button
                 type="button"
-                onClick={handleLoadSample}
-                className="text-[11px] font-mono text-[#541228] hover:underline"
+                onClick={handleClearUrl}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-[#FAF6F0]/60 hover:text-white p-1 rounded transition-colors"
+                title="Clear Google Sheet URL"
               >
-                Load Sample CSV
+                <X className="h-3.5 w-3.5" />
               </button>
-              <span className="text-tochi-text-subtle">|</span>
-              <button
-                type="button"
-                onClick={() => setShowRawCsv(!showRawCsv)}
-                className="text-[11px] text-tochi-text-muted hover:text-tochi-text inline-flex items-center gap-1"
-              >
-                <span>{showRawCsv ? 'Use Sheet Link' : 'Paste Raw CSV'}</span>
-                {showRawCsv ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
-              </button>
-            </div>
-          </div>
-
-          {!showRawCsv ? (
-            <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
-              <div className="relative flex-1">
-                <Link2 className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-tochi-text-subtle" />
-                <input
-                  ref={sheetInputRef}
-                  type="text"
-                  value={sheetUrl}
-                  onChange={(e) => setSheetUrl(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter') {
-                      e.preventDefault();
-                      handleInlineSync();
-                    }
-                  }}
-                  placeholder="Paste Google Sheets Public CSV or Share URL (e.g. https://docs.google.com/spreadsheets/d/...)"
-                  className="w-full bg-[#FAF6F0]/60 border border-tochi-border focus:border-[#541228] focus:bg-white rounded-lg pl-9 pr-4 py-2 text-xs text-tochi-text placeholder:text-tochi-text-subtle outline-none transition-all font-mono shadow-sm"
-                />
-              </div>
-
-              <button
-                type="button"
-                onClick={handleInlineSync}
-                disabled={isSyncing}
-                className="inline-flex items-center justify-center gap-1.5 px-4 py-2 rounded-lg text-xs font-semibold bg-[#541228] hover:bg-[#6B1733] text-white transition-all shadow-burgundy active:scale-95 disabled:opacity-50 shrink-0"
-              >
-                <RefreshCw className={`h-3.5 w-3.5 ${isSyncing ? 'animate-spin' : ''}`} />
-                <span>{isSyncing ? 'Syncing...' : 'Sync Students'}</span>
-              </button>
-            </div>
-          ) : (
-            <div className="space-y-2">
-              <textarea
-                value={rawCsvContent}
-                onChange={(e) => setRawCsvContent(e.target.value)}
-                placeholder="Full Name,Email,WhatsApp,College,Track,Degree,Year&#10;Aarav Sharma,aarav@example.com,+919876543210,IIT Madras,AI_WEB_DEV,B.Tech,3rd Year"
-                rows={3}
-                className="w-full bg-[#FAF6F0]/60 border border-tochi-border focus:border-[#541228] focus:bg-white rounded-lg p-2.5 text-xs text-tochi-text placeholder:text-tochi-text-subtle outline-none transition-all font-mono shadow-sm"
-              />
-              <div className="flex items-center justify-between">
-                <span className="text-[10px] text-tochi-text-subtle font-mono">
-                  Format: Full Name, Email, WhatsApp, College, Track, Degree, Year
-                </span>
-                <button
-                  type="button"
-                  onClick={handleInlineSync}
-                  disabled={isSyncing || !rawCsvContent.trim()}
-                  className="inline-flex items-center gap-1.5 px-4 py-1.5 rounded-lg text-xs font-semibold bg-[#541228] hover:bg-[#6B1733] text-white transition-all shadow-burgundy active:scale-95 disabled:opacity-50"
-                >
-                  <RefreshCw className={`h-3 w-3 ${isSyncing ? 'animate-spin' : ''}`} />
-                  <span>{isSyncing ? 'Ingesting...' : 'Ingest Raw CSV'}</span>
-                </button>
-              </div>
-            </div>
-          )}
-
-          {/* Feedback & Helper Text */}
-          <div className="mt-2 flex flex-col sm:flex-row sm:items-center justify-between gap-1 text-[11px]">
-            {syncStatus ? (
-              <div className={`flex items-center gap-1.5 ${
-                syncStatus.type === 'success' ? 'text-emerald-700' : 'text-amber-700'
-              }`}>
-                {syncStatus.type === 'success' ? (
-                  <CheckCircle2 className="h-3.5 w-3.5 text-emerald-600 shrink-0" />
-                ) : (
-                  <AlertCircle className="h-3.5 w-3.5 text-amber-600 shrink-0" />
-                )}
-                <span className="font-medium">{syncStatus.text}</span>
-                {syncStatus.details && (
-                  <span className="text-tochi-text-muted">{syncStatus.details}</span>
-                )}
-              </div>
-            ) : (
-              <div className="text-tochi-text-subtle text-[10px] font-mono flex items-center gap-2 flex-wrap">
-                <span>• Auto-maps Full Name, Email, WhatsApp, Track &amp; College</span>
-                <span>• Assigns Smart Student IDs (TCL-26Q4)</span>
-                <span>• Duplicate emails are automatically preserved without overwrite</span>
-              </div>
             )}
           </div>
         </div>
