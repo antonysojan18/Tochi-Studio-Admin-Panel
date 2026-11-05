@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getFellowById, updateFellow } from '@/lib/fellows-service';
+import { getFellowById, updateFellow, deleteFellow } from '@/lib/fellows-service';
 
 export async function GET(
   req: NextRequest,
@@ -39,6 +39,30 @@ export async function PATCH(
   } catch (error: any) {
     return NextResponse.json(
       { success: false, error: error.message || 'Failed to update candidate' },
+      { status: 500 }
+    );
+  }
+}
+
+export async function DELETE(
+  req: NextRequest,
+  { params }: { params: { id: string } }
+) {
+  try {
+    const success = await deleteFellow(params.id);
+    if (!success) {
+      return NextResponse.json(
+        { success: false, error: 'Candidate not found or deletion failed' },
+        { status: 404 }
+      );
+    }
+    return NextResponse.json({
+      success: true,
+      message: 'Candidate record permanently deleted from database',
+    });
+  } catch (error: any) {
+    return NextResponse.json(
+      { success: false, error: error.message || 'Failed to delete candidate' },
       { status: 500 }
     );
   }

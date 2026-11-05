@@ -9,11 +9,12 @@ export const SessionGuard = () => {
   const router = useRouter();
   const timeoutRef = useRef<NodeJS.Timeout | null>(null);
 
-  const performAutoLogout = async () => {
+  const performAutoLogout = async (reason = 'idle') => {
     try {
+      sessionStorage.removeItem('tochi_auth_session');
       await fetch('/api/auth/logout', { method: 'POST', cache: 'no-store' });
     } catch {}
-    router.push('/login?reason=idle');
+    router.push(`/login?reason=${reason}`);
     router.refresh();
   };
 
@@ -21,12 +22,28 @@ export const SessionGuard = () => {
     if (timeoutRef.current) {
       clearTimeout(timeoutRef.current);
     }
-    timeoutRef.current = setTimeout(performAutoLogout, IDLE_TIMEOUT_MS);
+    timeoutRef.current = setTimeout(() => performAutoLogout('idle'), IDLE_TIMEOUT_MS);
   };
 
   useEffect(() => {
-    const events = ['mousemove', 'mousedown', 'keydown', 'scroll', 'touchstart'];
+    // 1. Re-login on every dashboard entrance: Verify active tab session
+    const isSessionActive = typeof window !== 'undefined' && sessionStorage.getItem('tochi_auth_session') === 'active';
+    if (!isSessionActive) {
+      performAutoLogout('reauth');
+      return;
+    }
 
+    // 2. Auto-logout on tab close or page navigation
+    const handleUnload = () => {
+      try {
+        sessionStorage.removeItem('tochi_auth_session');
+        navigator.sendBeacon('/api/auth/logout');
+      } catch {}
+    };
+    window.addEventListener('beforeunload', handleUnload);
+
+    // 3. User activity monitor for idle timeout
+    const events = ['mousemove', 'mousedown', 'keydown', 'scroll', 'touchstart'];
     const handleActivity = () => {
       resetTimer();
     };
@@ -45,6 +62,7 @@ export const SessionGuard = () => {
       events.forEach((evt) => {
         window.removeEventListener(evt, handleActivity);
       });
+      window.removeEventListener('beforeunload', handleUnload);
     };
   }, []);
 

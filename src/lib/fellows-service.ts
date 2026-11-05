@@ -234,6 +234,41 @@ export async function updateFellow(id: string, updates: Partial<Fellow>): Promis
 }
 
 /**
+ * Permanently deletes a fellow from Supabase and local store.
+ */
+export async function deleteFellow(id: string): Promise<boolean> {
+  const supabase = getSupabaseAdminClient();
+  let deletedFromSupabase = false;
+
+  if (supabase && isSupabaseConfigured) {
+    try {
+      const { error } = await supabase
+        .from('fellows')
+        .delete()
+        .eq('id', id);
+
+      if (!error) {
+        deletedFromSupabase = true;
+      } else {
+        console.error('[FellowsService] Supabase delete error:', error);
+      }
+    } catch (err) {
+      console.error('[FellowsService] Supabase delete exception:', err);
+    }
+  }
+
+  // Also remove from local store
+  const local = loadLocalStore();
+  const filtered = local.filter(f => f.id !== id && f.student_id !== id);
+  const wasFoundLocally = filtered.length !== local.length;
+  if (wasFoundLocally) {
+    saveLocalStore(filtered);
+  }
+
+  return deletedFromSupabase || wasFoundLocally;
+}
+
+/**
  * Batch insert from Google Sheet / CSV.
  */
 export async function batchInsertFromSheet(records: Array<{

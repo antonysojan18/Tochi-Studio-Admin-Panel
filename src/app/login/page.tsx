@@ -108,6 +108,11 @@ function LoginForm() {
         throw new Error(data.error || 'Invalid credentials');
       }
 
+      // Set active session flag for this browser tab
+      try {
+        sessionStorage.setItem('tochi_auth_session', 'active');
+      } catch {}
+
       setPassword('');
       setUsername('');
 

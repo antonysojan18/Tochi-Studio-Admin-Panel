@@ -126,7 +126,7 @@ export async function POST(req: NextRequest) {
       message: 'Authentication successful. Cryptographic session established.',
     });
 
-    // 7 days expiration, Strict SameSite, HttpOnly
+    // Non-persistent Session Cookie: destroyed on browser close for security
     response.cookies.set({
       name: SESSION_COOKIE_NAME,
       value: token,
@@ -134,7 +134,6 @@ export async function POST(req: NextRequest) {
       secure: process.env.NODE_ENV === 'production',
       sameSite: 'lax',
       path: '/',
-      maxAge: 7 * 24 * 60 * 60,
     });
 
     return response;

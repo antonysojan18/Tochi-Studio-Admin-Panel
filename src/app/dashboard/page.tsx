@@ -143,6 +143,24 @@ export default function DashboardPage() {
     }
   };
 
+  // Permanently Delete Fellow from Database
+  const handleDeleteFellow = async (id: string, name: string) => {
+    try {
+      const res = await fetch(`/api/fellows/${id}`, {
+        method: 'DELETE',
+      });
+      const data = await res.json();
+      if (!res.ok || !data.success) {
+        throw new Error(data.error || 'Failed to delete candidate');
+      }
+      setFellows(prev => prev.filter(f => f.id !== id));
+      showToast(`Permanently deleted ${name} from database`, 'success');
+    } catch (err: any) {
+      showToast(err.message || 'Deletion failed', 'error');
+      fetchFellows();
+    }
+  };
+
   // Open Offer Letter PDF Modal
   const handleOpenOfferPdfModal = (fellow: Fellow) => {
     setPdfModalFellow(fellow);
@@ -298,6 +316,7 @@ export default function DashboardPage() {
             fellows={filteredFellows}
             onUpdateStatus={handleUpdateStatus}
             onUpdateDates={handleUpdateDates}
+            onDeleteFellow={handleDeleteFellow}
             onOpenPdfModal={handleOpenOfferPdfModal}
             onOpenCertificateModal={handleOpenCertificateModal}
             onOpenMessagePreview={handleOpenMessagePreview}
