@@ -6,7 +6,6 @@ import {
   Search, 
   FileSpreadsheet, 
   UserPlus, 
-  ShieldCheck, 
   Users, 
   Flame, 
   FileCheck2, 
@@ -19,7 +18,6 @@ import {
   ChevronDown,
   ChevronUp
 } from 'lucide-react';
-import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { Fellow } from '@/types/fellow';
 
@@ -202,16 +200,6 @@ export const HeaderBar: React.FC<HeaderBarProps> = ({
               <UserPlus className="h-3.5 w-3.5" />
               <span>Add Student</span>
             </button>
-
-            <Link
-              href="/verify"
-              target="_blank"
-              className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium text-[#FAF6F0] hover:text-white bg-white/10 hover:bg-white/20 border border-white/20 transition-all shadow-sm"
-              title="Open Public Verification Portal"
-            >
-              <ShieldCheck className="h-3.5 w-3.5 text-emerald-300" />
-              <span className="hidden sm:inline">Verify</span>
-            </Link>
 
             {/* Sign Out Button */}
             <button
