@@ -4,6 +4,11 @@ import { Fellow, FellowStatus, TrackType } from '@/types/fellow';
 import { INITIAL_FELLOWS } from './mock-data';
 import { generateStudentId } from './id-generator';
 import { getSupabaseAdminClient, isSupabaseConfigured } from './supabase/client';
+import { 
+  SYSTEM_CONFIG_STUDENT_ID, 
+  SYSTEM_CONFIG_UUID, 
+  SYSTEM_CONFIG_HASH 
+} from './settings-service';
 import crypto from 'crypto';
 
 // Persistence path for file-based fallback store (handles Vercel serverless /tmp)
@@ -62,6 +67,11 @@ function saveLocalStore(fellows: Fellow[]) {
  * Fetch all fellows from Supabase or fallback store.
  */
 export async function getAllFellows(): Promise<Fellow[]> {
+  const isCandidate = (f: Fellow) => 
+    f.student_id !== SYSTEM_CONFIG_STUDENT_ID && 
+    f.id !== SYSTEM_CONFIG_UUID &&
+    f.email !== 'settings@tochi.internal';
+
   const supabase = getSupabaseAdminClient();
   if (supabase && isSupabaseConfigured) {
     try {
@@ -71,25 +81,32 @@ export async function getAllFellows(): Promise<Fellow[]> {
         .order('created_at', { ascending: false });
 
       if (!error && Array.isArray(data)) {
-        return data as Fellow[];
+        return (data as Fellow[]).filter(isCandidate);
       }
       if (error) {
         console.error('[FellowsService] Supabase select error:', error);
-        return loadLocalStore();
+        return loadLocalStore().filter(isCandidate);
       }
     } catch (err) {
       console.error('[FellowsService] Supabase exception:', err);
-      return loadLocalStore();
+      return loadLocalStore().filter(isCandidate);
     }
   }
 
-  return loadLocalStore();
+  return loadLocalStore().filter(isCandidate);
 }
 
 /**
  * Fetch fellow by UUID or student_id.
  */
 export async function getFellowById(idOrStudentId: string): Promise<Fellow | null> {
+  if (
+    idOrStudentId === SYSTEM_CONFIG_STUDENT_ID || 
+    idOrStudentId === SYSTEM_CONFIG_UUID
+  ) {
+    return null;
+  }
+
   const supabase = getSupabaseAdminClient();
   if (supabase && isSupabaseConfigured) {
     try {
@@ -99,14 +116,17 @@ export async function getFellowById(idOrStudentId: string): Promise<Fellow | nul
         ? await query.eq('id', idOrStudentId).maybeSingle()
         : await query.eq('student_id', idOrStudentId).maybeSingle();
 
-      if (!error && data) return data as Fellow;
+      if (!error && data && data.student_id !== SYSTEM_CONFIG_STUDENT_ID) return data as Fellow;
     } catch (err) {
       console.error('[FellowsService] Supabase get error:', err);
     }
   }
 
   const all = loadLocalStore();
-  const match = all.find(f => f.id === idOrStudentId || f.student_id === idOrStudentId);
+  const match = all.find(f => 
+    (f.id === idOrStudentId || f.student_id === idOrStudentId) && 
+    f.student_id !== SYSTEM_CONFIG_STUDENT_ID
+  );
   return match || null;
 }
 
@@ -115,6 +135,14 @@ export async function getFellowById(idOrStudentId: string): Promise<Fellow | nul
  */
 export async function getFellowByVerifyHash(hashOrId: string): Promise<Fellow | null> {
   const clean = hashOrId.trim();
+  if (
+    clean === SYSTEM_CONFIG_HASH || 
+    clean === SYSTEM_CONFIG_STUDENT_ID || 
+    clean === SYSTEM_CONFIG_UUID
+  ) {
+    return null;
+  }
+
   const supabase = getSupabaseAdminClient();
   if (supabase && isSupabaseConfigured) {
     try {
@@ -124,7 +152,7 @@ export async function getFellowByVerifyHash(hashOrId: string): Promise<Fellow | 
         .or(`qr_verify_hash.eq.${clean},student_id.eq.${clean},student_id.ilike.${clean}`)
         .maybeSingle();
 
-      if (!error && data) return data as Fellow;
+      if (!error && data && data.student_id !== SYSTEM_CONFIG_STUDENT_ID) return data as Fellow;
     } catch (err) {
       console.error('[FellowsService] Supabase verify lookup error:', err);
     }
@@ -133,9 +161,11 @@ export async function getFellowByVerifyHash(hashOrId: string): Promise<Fellow | 
   const all = loadLocalStore();
   const lower = clean.toLowerCase();
   return all.find(f => 
-    (f.qr_verify_hash && f.qr_verify_hash.toLowerCase() === lower) || 
-    (f.student_id && f.student_id.toLowerCase() === lower) ||
-    (f.id && f.id.toLowerCase() === lower)
+    f.student_id !== SYSTEM_CONFIG_STUDENT_ID && (
+      (f.qr_verify_hash && f.qr_verify_hash.toLowerCase() === lower) || 
+      (f.student_id && f.student_id.toLowerCase() === lower) ||
+      (f.id && f.id.toLowerCase() === lower)
+    )
   ) || null;
 }
 
@@ -215,6 +245,10 @@ export async function createFellow(input: {
  * Update fellow fields.
  */
 export async function updateFellow(id: string, updates: Partial<Fellow>): Promise<Fellow | null> {
+  if (id === SYSTEM_CONFIG_STUDENT_ID || id === SYSTEM_CONFIG_UUID) {
+    return null;
+  }
+
   const supabase = getSupabaseAdminClient();
   const payload = {
     ...updates,
@@ -254,6 +288,10 @@ export async function updateFellow(id: string, updates: Partial<Fellow>): Promis
  * Permanently deletes a fellow from Supabase and local store.
  */
 export async function deleteFellow(id: string): Promise<boolean> {
+  if (id === SYSTEM_CONFIG_STUDENT_ID || id === SYSTEM_CONFIG_UUID) {
+    return false;
+  }
+
   const supabase = getSupabaseAdminClient();
   let deletedFromSupabase = false;
 
@@ -306,7 +344,7 @@ export async function batchInsertFromSheet(records: Array<{
 
   for (const rec of records) {
     const email = (rec.email || '').trim().toLowerCase();
-    if (!email || !email.includes('@')) {
+    if (!email || !email.includes('@') || email === 'settings@tochi.internal') {
       continue;
     }
 

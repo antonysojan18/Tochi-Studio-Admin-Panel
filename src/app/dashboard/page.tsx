@@ -86,9 +86,18 @@ export default function DashboardPage() {
             } catch {}
           }
         } else {
-          // If server returns 0 records (e.g. cold start / new container), auto-heal from Google Sheet
+          // If server returns 0 records (e.g. cold start / new container / fresh DB),
+          // query universal setting from backend or local cache
           let sheetUrl = '';
-          if (typeof window !== 'undefined') {
+          try {
+            const settingsRes = await fetch('/api/settings?key=google_sheet_url');
+            const settingsData = await settingsRes.json();
+            if (settingsData.success && typeof settingsData.value === 'string' && settingsData.value.trim()) {
+              sheetUrl = settingsData.value.trim();
+            }
+          } catch {}
+
+          if (!sheetUrl && typeof window !== 'undefined') {
             sheetUrl = localStorage.getItem('tochi_google_sheet_url') || '';
           }
 
@@ -108,6 +117,7 @@ export default function DashboardPage() {
                   if (typeof window !== 'undefined') {
                     try {
                       localStorage.setItem('tochi_cached_fellows', JSON.stringify(refetchData.data));
+                      localStorage.setItem('tochi_google_sheet_url', sheetUrl);
                     } catch {}
                   }
                   return;
@@ -252,7 +262,15 @@ export default function DashboardPage() {
       if (!res.ok || !data.success) {
         throw new Error(data.error || 'Failed to delete candidate');
       }
-      setFellows(prev => prev.filter(f => f.id !== id));
+      setFellows(prev => {
+        const next = prev.filter(f => f.id !== id);
+        if (typeof window !== 'undefined') {
+          try {
+            localStorage.setItem('tochi_cached_fellows', JSON.stringify(next));
+          } catch {}
+        }
+        return next;
+      });
       showToast(`Permanently deleted ${name} from database`, 'success');
     } catch (err: any) {
       showToast(err.message || 'Deletion failed', 'error');
