@@ -231,7 +231,7 @@ export async function generateOfferLetterPdf(fellow: Fellow, hostUrl?: string): 
   });
 
   cursorY -= 18;
-  const timelineText = `The internship is a structured 4-week intensive program commencing on ${fellow.cohort_start_date} and concluding on ${fellow.cohort_end_date}. During this period, you will collaborate on modern web architecture, autonomous workflow engineering, and production-ready applications.`;
+  const timelineText = `The internship is a structured 4-week intensive program commencing on ${fellow.cohort_start_date} and concluding on ${fellow.cohort_end_date}. During this period, you will collaborate on hands-on project deliverables, practical engineering sprints, and production-grade software within the ${trackInfo.label} specialization.`;
   const p2Height = drawWrappedText(page, timelineText, 48, cursorY, width - 96, fontHelvetica, 10, colorDarkText, 15.5);
   cursorY -= p2Height;
 

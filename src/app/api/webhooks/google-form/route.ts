@@ -25,11 +25,11 @@ export async function POST(req: NextRequest) {
     // Map raw track string
     let track: TrackType = 'AI_WEB_DEV';
     const str = String(rawTrack).toUpperCase();
-    if (str.includes('UI') || str.includes('UX')) track = 'GEN_UIUX';
-    else if (str.includes('AUTO') || str.includes('FLOW')) track = 'AUTOMATION';
+    if (str.includes('UI') || str.includes('UX') || str.includes('DESIGN') || str.includes('GENERATIVE')) track = 'GEN_UIUX';
+    else if (str.includes('AUTO') || str.includes('INTELLIGENT') || str.includes('FLOW')) track = 'AUTOMATION';
     else if (str.includes('FULL') || str.includes('STACK')) track = 'FULL_STACK';
-    else if (str.includes('ML') || str.includes('AI') && !str.includes('WEB')) track = 'ML_AI';
-    else if (str.includes('TOOL')) track = 'AI_TOOLS';
+    else if (str.includes('ML') || str.includes('MACHINE') || str.includes('LEARNING')) track = 'ML_AI';
+    else if (str.includes('TOOL') || str.includes('MASTER')) track = 'AI_TOOLS';
 
     // Check if email already exists
     const all = await getAllFellows();

@@ -46,8 +46,13 @@ export const HeaderBar: React.FC<HeaderBarProps> = ({
   const submitted = fellows.filter(f => f.status === 'SUBMITTED').length;
   const certified = fellows.filter(f => f.status === 'CERTIFIED').length;
 
-  // Universal Google Sheet URL state
-  const [sheetUrl, setSheetUrl] = useState('');
+  // Universal Google Sheet URL state with persistent localStorage caching
+  const [sheetUrl, setSheetUrl] = useState(() => {
+    if (typeof window !== 'undefined') {
+      return localStorage.getItem('tochi_google_sheet_url') || '';
+    }
+    return '';
+  });
   const [isSyncing, setIsSyncing] = useState(false);
   const [syncFeedback, setSyncFeedback] = useState<{
     type: 'success' | 'error';
@@ -65,6 +70,10 @@ export const HeaderBar: React.FC<HeaderBarProps> = ({
     setSyncFeedback(null);
 
     try {
+      if (typeof window !== 'undefined') {
+        localStorage.setItem('tochi_google_sheet_url', sheetUrl.trim());
+      }
+
       // 1. Immediately persist URL universally to backend
       await fetch('/api/settings', {
         method: 'POST',
@@ -112,13 +121,39 @@ export const HeaderBar: React.FC<HeaderBarProps> = ({
     }
   };
 
-  // 1. Load universal Google Sheet URL on mount across all devices
+  // 1. Load universal Google Sheet URL on mount across all devices & auto-heal cold start
   useEffect(() => {
+    let cachedUrl = '';
+    if (typeof window !== 'undefined') {
+      cachedUrl = localStorage.getItem('tochi_google_sheet_url') || '';
+      if (cachedUrl) {
+        setSheetUrl(cachedUrl);
+      }
+    }
+
     fetch('/api/settings?key=google_sheet_url')
       .then(res => res.json())
-      .then(data => {
-        if (data.success && typeof data.value === 'string') {
-          setSheetUrl(data.value);
+      .then(async data => {
+        if (data.success && typeof data.value === 'string' && data.value.trim()) {
+          const remoteUrl = data.value.trim();
+          setSheetUrl(remoteUrl);
+          if (typeof window !== 'undefined') {
+            localStorage.setItem('tochi_google_sheet_url', remoteUrl);
+          }
+        } else if (cachedUrl) {
+          // Server restarted or empty; re-persist client URL to backend
+          await fetch('/api/settings', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ key: 'google_sheet_url', value: cachedUrl }),
+          });
+          // And automatically trigger background ingestion to populate dashboard
+          await fetch('/api/sync-sheet', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ sheetUrl: cachedUrl }),
+          });
+          if (onSyncSuccess) await onSyncSuccess();
         }
       })
       .catch(() => {});
@@ -142,6 +177,13 @@ export const HeaderBar: React.FC<HeaderBarProps> = ({
   const handleUrlChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const nextVal = e.target.value;
     setSheetUrl(nextVal);
+    if (typeof window !== 'undefined') {
+      if (nextVal.trim()) {
+        localStorage.setItem('tochi_google_sheet_url', nextVal.trim());
+      } else {
+        localStorage.removeItem('tochi_google_sheet_url');
+      }
+    }
 
     if (saveDebounceRef.current) {
       clearTimeout(saveDebounceRef.current);
@@ -176,6 +218,9 @@ export const HeaderBar: React.FC<HeaderBarProps> = ({
   // 3. Clear button: Clears the input and purges URL from database universally
   const handleClearUrl = async () => {
     setSheetUrl('');
+    if (typeof window !== 'undefined') {
+      localStorage.removeItem('tochi_google_sheet_url');
+    }
     if (saveDebounceRef.current) {
       clearTimeout(saveDebounceRef.current);
     }

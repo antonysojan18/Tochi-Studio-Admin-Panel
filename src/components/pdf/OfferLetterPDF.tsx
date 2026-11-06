@@ -192,7 +192,7 @@ export const OfferLetterPDF: React.FC<OfferLetterProps> = ({ fellow, qrDataUrl }
 
         <Text style={styles.sectionTitle}>1. INTERNSHIP DURATION & SCHEDULE</Text>
         <Text style={styles.bodyText}>
-          The internship is a structured 4-week intensive program commencing on {fellow.cohort_start_date} and concluding on {fellow.cohort_end_date}. During this period, you will collaborate on modern web architecture, autonomous workflow engineering, and production-ready applications.
+          The internship is a structured 4-week intensive program commencing on {fellow.cohort_start_date} and concluding on {fellow.cohort_end_date}. During this period, you will collaborate on hands-on project deliverables, practical engineering sprints, and production-grade software within the {trackInfo.label} specialization.
         </Text>
 
         <Text style={styles.sectionTitle}>2. ROLES, SCOPE & DELIVERABLES</Text>

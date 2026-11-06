@@ -17,6 +17,12 @@ function loadLocalSettings(): Record<string, string> {
       memorySettings = JSON.parse(raw) || {};
       return memorySettings;
     }
+    const fallbackPath = path.join(process.cwd(), '.data', 'settings.json');
+    if (fs.existsSync(fallbackPath)) {
+      const raw = fs.readFileSync(fallbackPath, 'utf-8');
+      memorySettings = JSON.parse(raw) || {};
+      return memorySettings;
+    }
   } catch (err) {
     console.warn('[SettingsService] Failed to read local settings file:', err);
   }

@@ -49,8 +49,8 @@ export interface TrackMetadata {
 export const TRACK_DETAILS: Record<TrackType, TrackMetadata> = {
   AI_WEB_DEV: {
     code: 'WEB',
-    label: 'AI-Augmented Web Engineering',
-    shortLabel: 'AI Web Dev',
+    label: 'AI Web Development',
+    shortLabel: 'AI Web Development',
     badgeBg: 'bg-[#F7EEF1]',
     badgeText: 'text-[#541228]',
     border: 'border-[#541228]/20',
@@ -58,8 +58,8 @@ export const TRACK_DETAILS: Record<TrackType, TrackMetadata> = {
   },
   GEN_UIUX: {
     code: 'UIUX',
-    label: 'Generative UI/UX & Systems',
-    shortLabel: 'Gen UI/UX',
+    label: 'Generative UI UX Design',
+    shortLabel: 'Generative UI UX Design',
     badgeBg: 'bg-purple-50',
     badgeText: 'text-purple-800',
     border: 'border-purple-200',
@@ -67,8 +67,8 @@ export const TRACK_DETAILS: Record<TrackType, TrackMetadata> = {
   },
   AUTOMATION: {
     code: 'AUTO',
-    label: 'Autonomous Workflow Engineering',
-    shortLabel: 'Automation',
+    label: 'Intelligent Automation',
+    shortLabel: 'Intelligent Automation',
     badgeBg: 'bg-cyan-50',
     badgeText: 'text-cyan-800',
     border: 'border-cyan-200',
@@ -76,8 +76,8 @@ export const TRACK_DETAILS: Record<TrackType, TrackMetadata> = {
   },
   FULL_STACK: {
     code: 'FSTK',
-    label: 'Full-Stack Product Architecture',
-    shortLabel: 'Full-Stack',
+    label: 'Full Stack Development',
+    shortLabel: 'Full Stack Development',
     badgeBg: 'bg-amber-50',
     badgeText: 'text-amber-800',
     border: 'border-amber-200',
@@ -85,8 +85,8 @@ export const TRACK_DETAILS: Record<TrackType, TrackMetadata> = {
   },
   ML_AI: {
     code: 'MLAI',
-    label: 'Machine Learning & Applied AI',
-    shortLabel: 'ML / AI',
+    label: 'Machine Learning with AI',
+    shortLabel: 'Machine Learning with AI',
     badgeBg: 'bg-rose-50',
     badgeText: 'text-rose-800',
     border: 'border-rose-200',
@@ -94,8 +94,8 @@ export const TRACK_DETAILS: Record<TrackType, TrackMetadata> = {
   },
   AI_TOOLS: {
     code: 'TOOL',
-    label: 'AI Tooling & Internal Systems',
-    shortLabel: 'AI Tools',
+    label: 'Master in AI Tools',
+    shortLabel: 'Master in AI Tools',
     badgeBg: 'bg-indigo-50',
     badgeText: 'text-indigo-800',
     border: 'border-indigo-200',

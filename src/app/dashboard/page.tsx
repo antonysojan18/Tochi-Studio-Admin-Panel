@@ -21,7 +21,18 @@ import {
 } from 'lucide-react';
 
 export default function DashboardPage() {
-  const [fellows, setFellows] = useState<Fellow[]>([]);
+  const [fellows, setFellows] = useState<Fellow[]>(() => {
+    if (typeof window !== 'undefined') {
+      try {
+        const cached = localStorage.getItem('tochi_cached_fellows');
+        if (cached) {
+          const parsed = JSON.parse(cached);
+          if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+        }
+      } catch {}
+    }
+    return [];
+  });
   const [isLoading, setIsLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedTrack, setSelectedTrack] = useState<TrackType | 'ALL'>('ALL');
@@ -67,10 +78,72 @@ export default function DashboardPage() {
       const res = await fetch('/api/fellows');
       const data = await res.json();
       if (data.success && Array.isArray(data.data)) {
-        setFellows(data.data);
+        if (data.data.length > 0) {
+          setFellows(data.data);
+          if (typeof window !== 'undefined') {
+            try {
+              localStorage.setItem('tochi_cached_fellows', JSON.stringify(data.data));
+            } catch {}
+          }
+        } else {
+          // If server returns 0 records (e.g. cold start / new container), auto-heal from Google Sheet
+          let sheetUrl = '';
+          if (typeof window !== 'undefined') {
+            sheetUrl = localStorage.getItem('tochi_google_sheet_url') || '';
+          }
+
+          if (sheetUrl) {
+            try {
+              const syncRes = await fetch('/api/sync-sheet', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ sheetUrl }),
+              });
+              const syncData = await syncRes.json();
+              if (syncData.success) {
+                const refetch = await fetch('/api/fellows');
+                const refetchData = await refetch.json();
+                if (refetchData.success && Array.isArray(refetchData.data) && refetchData.data.length > 0) {
+                  setFellows(refetchData.data);
+                  if (typeof window !== 'undefined') {
+                    try {
+                      localStorage.setItem('tochi_cached_fellows', JSON.stringify(refetchData.data));
+                    } catch {}
+                  }
+                  return;
+                }
+              }
+            } catch {}
+          }
+
+          // Check if we have cached fellows from previous session
+          if (typeof window !== 'undefined') {
+            try {
+              const cached = localStorage.getItem('tochi_cached_fellows');
+              if (cached) {
+                const parsed = JSON.parse(cached);
+                if (Array.isArray(parsed) && parsed.length > 0) {
+                  setFellows(parsed);
+                  return;
+                }
+              }
+            } catch {}
+          }
+
+          setFellows([]);
+        }
       }
     } catch (err) {
       console.error('Failed to load fellows', err);
+      if (typeof window !== 'undefined') {
+        try {
+          const cached = localStorage.getItem('tochi_cached_fellows');
+          if (cached) {
+            const parsed = JSON.parse(cached);
+            if (Array.isArray(parsed)) setFellows(parsed);
+          }
+        } catch {}
+      }
     } finally {
       setIsLoading(false);
     }
@@ -79,19 +152,27 @@ export default function DashboardPage() {
   useEffect(() => {
     fetchFellows();
 
-    // 30-second live background sync (runs silently in the backend)
+    // 30-second silent background sync (runs 100% in background, nothing shown in the front)
     const intervalId = setInterval(async () => {
       try {
         const res = await fetch('/api/sync-sheet');
         if (res.ok) {
           const data = await res.json();
           if (data.success && data.insertedCount > 0) {
-            fetchFellows();
-            showToast(`Auto-sync pulled ${data.insertedCount} new candidate${data.insertedCount > 1 ? 's' : ''}`, 'success');
+            const fellowsRes = await fetch('/api/fellows');
+            const fellowsData = await fellowsRes.json();
+            if (fellowsData.success && Array.isArray(fellowsData.data)) {
+              setFellows(fellowsData.data);
+              if (typeof window !== 'undefined') {
+                try {
+                  localStorage.setItem('tochi_cached_fellows', JSON.stringify(fellowsData.data));
+                } catch {}
+              }
+            }
           }
         }
       } catch {
-        // Silent background polling
+        // Completely silent background execution
       }
     }, 30000);
 

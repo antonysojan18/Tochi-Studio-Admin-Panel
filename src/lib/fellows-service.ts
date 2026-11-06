@@ -27,6 +27,15 @@ function loadLocalStore(): Fellow[] {
         return memoryFellows;
       }
     }
+    const fallbackPath = path.join(process.cwd(), '.data', 'fellows.json');
+    if (fs.existsSync(fallbackPath)) {
+      const raw = fs.readFileSync(fallbackPath, 'utf-8');
+      const parsed = JSON.parse(raw);
+      if (Array.isArray(parsed)) {
+        memoryFellows = parsed;
+        return memoryFellows;
+      }
+    }
   } catch (err) {
     console.warn('[FellowsService] Error reading local data file:', err);
   }
@@ -309,15 +318,15 @@ export async function batchInsertFromSheet(records: Array<{
     // Map track string to TrackType
     let track: TrackType = 'AI_WEB_DEV';
     const rawTrack = (rec.track || '').toUpperCase();
-    if (rawTrack.includes('UI') || rawTrack.includes('UX') || rawTrack.includes('DESIGN')) {
+    if (rawTrack.includes('UI') || rawTrack.includes('UX') || rawTrack.includes('DESIGN') || rawTrack.includes('GENERATIVE')) {
       track = 'GEN_UIUX';
-    } else if (rawTrack.includes('AUTO') || rawTrack.includes('RPA') || rawTrack.includes('FLOW')) {
+    } else if (rawTrack.includes('AUTO') || rawTrack.includes('INTELLIGENT') || rawTrack.includes('RPA') || rawTrack.includes('FLOW')) {
       track = 'AUTOMATION';
     } else if (rawTrack.includes('STACK') || rawTrack.includes('FULL') || rawTrack.includes('FSTK')) {
       track = 'FULL_STACK';
-    } else if (rawTrack.includes('ML') || rawTrack.includes('MACHINE') || rawTrack.includes('DATA')) {
+    } else if (rawTrack.includes('ML') || rawTrack.includes('MACHINE') || rawTrack.includes('LEARNING') || rawTrack.includes('DATA')) {
       track = 'ML_AI';
-    } else if (rawTrack.includes('TOOL') || rawTrack.includes('INTERNAL')) {
+    } else if (rawTrack.includes('TOOL') || rawTrack.includes('MASTER') || rawTrack.includes('INTERNAL')) {
       track = 'AI_TOOLS';
     } else {
       track = 'AI_WEB_DEV';
