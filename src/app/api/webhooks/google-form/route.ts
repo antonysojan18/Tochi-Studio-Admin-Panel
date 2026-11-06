@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createFellow, getAllFellows } from '@/lib/fellows-service';
+import { createFellow, getAllFellows, parseTrackType } from '@/lib/fellows-service';
 import { sendFellowEmail } from '@/lib/email/resend';
 import { TrackType } from '@/types/fellow';
 
@@ -11,9 +11,9 @@ export async function POST(req: NextRequest) {
     const fullName = payload.full_name || payload.name || payload['Full Name'] || payload['Name'];
     const email = payload.email || payload['Email'] || payload['Email Address'];
     const phone = payload.phone || payload.whatsapp || payload['Phone'] || payload['WhatsApp Number'] || '+910000000000';
-    const rawTrack = payload.track || payload['Track'] || payload['Preferred Track'] || 'AI_WEB_DEV';
-    const college = payload.college || payload['College'] || payload['University'];
-    const portfolioUrl = payload.portfolio_url || payload['Portfolio'] || payload['GitHub URL'];
+    const rawTrack = payload.track || payload['Track'] || payload['Preferred Track'] || payload['Select Your Internship Track'] || 'AI_WEB_DEV';
+    const college = payload.college || payload['College'] || payload['University'] || payload['College / University Name'];
+    const portfolioUrl = payload.portfolio_url || payload['Portfolio'] || payload['GitHub URL'] || payload['GitHub / Portfolio / Behance / LinkedIn URL'];
 
     if (!fullName || !email) {
       return NextResponse.json(
@@ -22,14 +22,8 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Map raw track string
-    let track: TrackType = 'AI_WEB_DEV';
-    const str = String(rawTrack).toUpperCase();
-    if (str.includes('UI') || str.includes('UX') || str.includes('DESIGN') || str.includes('GENERATIVE')) track = 'GEN_UIUX';
-    else if (str.includes('AUTO') || str.includes('INTELLIGENT') || str.includes('FLOW')) track = 'AUTOMATION';
-    else if (str.includes('FULL') || str.includes('STACK')) track = 'FULL_STACK';
-    else if (str.includes('ML') || str.includes('MACHINE') || str.includes('LEARNING')) track = 'ML_AI';
-    else if (str.includes('TOOL') || str.includes('MASTER')) track = 'AI_TOOLS';
+    // Map raw track string smartly
+    const track: TrackType = parseTrackType(rawTrack);
 
     // Check if email already exists
     const all = await getAllFellows();

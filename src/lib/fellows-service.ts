@@ -319,7 +319,41 @@ export async function deleteFellow(id: string): Promise<boolean> {
 }
 
 /**
- * Batch insert from Google Sheet / CSV.
+ * Smartly maps any raw track label, Google Form option, or shorthand to the official TrackType enum.
+ */
+export function parseTrackType(raw?: string): TrackType {
+  if (!raw) return 'AI_WEB_DEV';
+  const clean = raw.trim().toUpperCase();
+
+  // 1. Direct Track Number prefix match (from official Google Forms options)
+  if (clean.includes('TRACK 01') || clean.includes('TRACK 1:') || clean.includes('TRACK 1 ') || clean.includes('TRACK1')) return 'AI_WEB_DEV';
+  if (clean.includes('TRACK 02') || clean.includes('TRACK 2:') || clean.includes('TRACK 2 ') || clean.includes('TRACK2')) return 'GEN_UIUX';
+  if (clean.includes('TRACK 03') || clean.includes('TRACK 3:') || clean.includes('TRACK 3 ') || clean.includes('TRACK3')) return 'AUTOMATION';
+  if (clean.includes('TRACK 04') || clean.includes('TRACK 4:') || clean.includes('TRACK 4 ') || clean.includes('TRACK4')) return 'FULL_STACK';
+  if (clean.includes('TRACK 05') || clean.includes('TRACK 5:') || clean.includes('TRACK 5 ') || clean.includes('TRACK5')) return 'ML_AI';
+  if (clean.includes('TRACK 06') || clean.includes('TRACK 6:') || clean.includes('TRACK 6 ') || clean.includes('TRACK6')) return 'AI_TOOLS';
+
+  // 2. Full official track title matches
+  if (clean.includes('AI WEB DEVELOPMENT') || clean.includes('WEB DEVELOPMENT') || clean.includes('WEB DEV')) return 'AI_WEB_DEV';
+  if (clean.includes('GENERATIVE UI') || clean.includes('UI UX') || clean.includes('UI/UX') || clean.includes('UIUX') || clean.includes('PRODUCT DESIGN')) return 'GEN_UIUX';
+  if (clean.includes('INTELLIGENT AUTOMATION') || clean.includes('AUTOMATION') || clean.includes('RPA')) return 'AUTOMATION';
+  if (clean.includes('FULL STACK') || clean.includes('FULLSTACK') || clean.includes('FSTK')) return 'FULL_STACK';
+  if (clean.includes('MACHINE LEARNING') || clean.includes('ML WITH AI') || /\bML\b/.test(clean)) return 'ML_AI';
+  if (clean.includes('MASTER IN AI TOOLS') || clean.includes('AI TOOLS')) return 'AI_TOOLS';
+
+  // 3. Distinctive keyword fallbacks
+  if (clean.includes('FIGMA') || clean.includes('DESIGN TOKENS') || clean.includes('FRAMER') || clean.includes('DESIGN') || clean.includes('UX')) return 'GEN_UIUX';
+  if (clean.includes('N8N') || clean.includes('ZAPIER') || clean.includes('MAKE.COM') || clean.includes('AGENTIC WORKFLOWS') || clean.includes('INTELLIGENT')) return 'AUTOMATION';
+  if (clean.includes('BACKEND') || clean.includes('NODE') || clean.includes('POSTGRESQL') || clean.includes('STACK')) return 'FULL_STACK';
+  if (clean.includes('PYTORCH') || clean.includes('TENSORFLOW') || clean.includes('DEEP LEARNING') || clean.includes('NEURAL') || clean.includes('LEARNING')) return 'ML_AI';
+  if (clean.includes('PROMPT') || clean.includes('CHATGPT') || clean.includes('CLAUDE') || clean.includes('TOOL') || clean.includes('MASTER')) return 'AI_TOOLS';
+  if (clean.includes('WEB') || clean.includes('FRONTEND') || clean.includes('HTML') || clean.includes('CSS') || clean.includes('REACT') || clean.includes('CURSOR')) return 'AI_WEB_DEV';
+
+  return 'AI_WEB_DEV';
+}
+
+/**
+ * Batch insert or update from Google Sheet / CSV.
  */
 export async function batchInsertFromSheet(records: Array<{
   full_name: string;
@@ -332,14 +366,17 @@ export async function batchInsertFromSheet(records: Array<{
   year_of_study?: string;
 }>): Promise<{
   inserted: Fellow[];
+  updated: Fellow[];
   skippedEmails: string[];
   totalProcessed: number;
 }> {
   const currentFellows = await getAllFellows();
-  const existingEmailSet = new Set(currentFellows.map(f => f.email.toLowerCase().trim()));
+  const fellowMapByEmail = new Map<string, Fellow>();
+  currentFellows.forEach(f => fellowMapByEmail.set(f.email.toLowerCase().trim(), f));
   const existingIds = currentFellows.map(f => f.student_id);
 
   const inserted: Fellow[] = [];
+  const updated: Fellow[] = [];
   const skippedEmails: string[] = [];
 
   for (const rec of records) {
@@ -348,31 +385,66 @@ export async function batchInsertFromSheet(records: Array<{
       continue;
     }
 
-    if (existingEmailSet.has(email)) {
-      skippedEmails.push(email);
+    const correctTrack = parseTrackType(rec.track);
+    const existing = fellowMapByEmail.get(email);
+
+    if (existing) {
+      // Check if existing fellow needs track, student_id, or profile correction
+      let needsUpdate = false;
+      let newStudentId = existing.student_id;
+
+      if (existing.track !== correctTrack) {
+        // Track was misidentified or updated! Re-calculate student ID with correct track prefix
+        newStudentId = generateStudentId(correctTrack, existingIds);
+        existingIds.push(newStudentId);
+        needsUpdate = true;
+      }
+
+      const updates: Partial<Fellow> = {};
+      if (existing.track !== correctTrack) {
+        updates.track = correctTrack;
+        updates.student_id = newStudentId;
+      }
+      if (rec.college?.trim() && rec.college.trim() !== existing.college) {
+        updates.college = rec.college.trim();
+        needsUpdate = true;
+      }
+      if (rec.degree?.trim() && rec.degree.trim() !== existing.degree) {
+        updates.degree = rec.degree.trim();
+        needsUpdate = true;
+      }
+      if (rec.year_of_study?.trim() && rec.year_of_study.trim() !== existing.year_of_study) {
+        updates.year_of_study = rec.year_of_study.trim();
+        needsUpdate = true;
+      }
+      if (rec.portfolio_url?.trim() && rec.portfolio_url.trim() !== existing.portfolio_url) {
+        updates.portfolio_url = rec.portfolio_url.trim();
+        needsUpdate = true;
+      }
+      if (rec.phone?.trim() && rec.phone.trim() !== '+910000000000' && rec.phone.trim() !== existing.phone) {
+        updates.phone = rec.phone.trim();
+        needsUpdate = true;
+      }
+      if (rec.full_name?.trim() && rec.full_name.trim() !== existing.full_name) {
+        updates.full_name = rec.full_name.trim();
+        needsUpdate = true;
+      }
+
+      if (needsUpdate) {
+        const updatedFellow = await updateFellow(existing.id, updates);
+        if (updatedFellow) {
+          updated.push(updatedFellow);
+          fellowMapByEmail.set(email, updatedFellow);
+        }
+      } else {
+        skippedEmails.push(email);
+      }
       continue;
     }
 
-    // Map track string to TrackType
-    let track: TrackType = 'AI_WEB_DEV';
-    const rawTrack = (rec.track || '').toUpperCase();
-    if (rawTrack.includes('UI') || rawTrack.includes('UX') || rawTrack.includes('DESIGN') || rawTrack.includes('GENERATIVE')) {
-      track = 'GEN_UIUX';
-    } else if (rawTrack.includes('AUTO') || rawTrack.includes('INTELLIGENT') || rawTrack.includes('RPA') || rawTrack.includes('FLOW')) {
-      track = 'AUTOMATION';
-    } else if (rawTrack.includes('STACK') || rawTrack.includes('FULL') || rawTrack.includes('FSTK')) {
-      track = 'FULL_STACK';
-    } else if (rawTrack.includes('ML') || rawTrack.includes('MACHINE') || rawTrack.includes('LEARNING') || rawTrack.includes('DATA')) {
-      track = 'ML_AI';
-    } else if (rawTrack.includes('TOOL') || rawTrack.includes('MASTER') || rawTrack.includes('INTERNAL')) {
-      track = 'AI_TOOLS';
-    } else {
-      track = 'AI_WEB_DEV';
-    }
-
-    const newId = generateStudentId(track, existingIds);
+    // New candidate insertion
+    const newId = generateStudentId(correctTrack, existingIds);
     existingIds.push(newId);
-    existingEmailSet.add(email);
 
     const now = new Date();
     const startDate = now.toISOString().split('T')[0];
@@ -387,7 +459,7 @@ export async function batchInsertFromSheet(records: Array<{
       college: rec.college?.trim() || null,
       degree: rec.degree?.trim() || null,
       year_of_study: rec.year_of_study?.trim() || null,
-      track: track,
+      track: correctTrack,
       portfolio_url: rec.portfolio_url?.trim() || null,
       status: 'APPLIED',
       cohort_start_date: startDate,
@@ -402,6 +474,7 @@ export async function batchInsertFromSheet(records: Array<{
     };
 
     inserted.push(newFellow);
+    fellowMapByEmail.set(email, newFellow);
   }
 
   if (inserted.length > 0) {
@@ -423,6 +496,7 @@ export async function batchInsertFromSheet(records: Array<{
 
   return {
     inserted,
+    updated,
     skippedEmails,
     totalProcessed: records.length,
   };

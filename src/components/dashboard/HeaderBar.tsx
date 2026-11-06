@@ -97,10 +97,20 @@ export const HeaderBar: React.FC<HeaderBarProps> = ({
         await onSyncSuccess();
       }
 
-      if (data.insertedCount > 0) {
+      if (data.insertedCount > 0 && data.updatedCount > 0) {
+        setSyncFeedback({
+          type: 'success',
+          text: `Pulled ${data.insertedCount} new, updated ${data.updatedCount} candidates!`,
+        });
+      } else if (data.insertedCount > 0) {
         setSyncFeedback({
           type: 'success',
           text: `Pulled ${data.insertedCount} new candidate${data.insertedCount > 1 ? 's' : ''}!`,
+        });
+      } else if (data.updatedCount > 0) {
+        setSyncFeedback({
+          type: 'success',
+          text: `Updated ${data.updatedCount} candidate track/profile record${data.updatedCount > 1 ? 's' : ''}!`,
         });
       } else {
         setSyncFeedback({

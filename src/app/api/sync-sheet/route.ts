@@ -91,13 +91,27 @@ async function processSync(sheetUrlToUse?: string, rawCsvInput?: string) {
     };
   }
 
-  // Helper to find column header case-insensitively
+  // Smart helper to find column header case-insensitively using exact and substring matching
   const findValue = (row: Record<string, string>, possibleKeys: string[]): string => {
     const keys = Object.keys(row);
-    for (const pk of possibleKeys) {
-      const matchingKey = keys.find(k => k.toLowerCase().replace(/[^a-z0-9]/g, '') === pk.toLowerCase().replace(/[^a-z0-9]/g, ''));
-      if (matchingKey && row[matchingKey]) {
-        return row[matchingKey].trim();
+    // 1. Exact cleaned match
+    for (const k of keys) {
+      const cleanKey = k.toLowerCase().replace(/[^a-z0-9]/g, '');
+      for (const pk of possibleKeys) {
+        const cleanPk = pk.toLowerCase().replace(/[^a-z0-9]/g, '');
+        if (cleanKey === cleanPk && row[k]) {
+          return row[k].trim();
+        }
+      }
+    }
+    // 2. Substring cleaned match (handles long Google Form questions like "Select Your Internship Track", "College / University Name")
+    for (const k of keys) {
+      const cleanKey = k.toLowerCase().replace(/[^a-z0-9]/g, '');
+      for (const pk of possibleKeys) {
+        const cleanPk = pk.toLowerCase().replace(/[^a-z0-9]/g, '');
+        if (cleanKey.includes(cleanPk) && row[k]) {
+          return row[k].trim();
+        }
       }
     }
     return '';
@@ -105,14 +119,14 @@ async function processSync(sheetUrlToUse?: string, rawCsvInput?: string) {
 
   // Normalize candidate rows with comprehensive Google Form headers mapping
   const normalizedCandidates = rows.map(row => {
-    const full_name = findValue(row, ['fullname', 'name', 'studentname', 'candidatename', 'applicantname', 'yourname', 'whatisyourname']);
-    const email = findValue(row, ['email', 'emailaddress', 'mail', 'candidateemail', 'applicantemail', 'emailid']);
-    const phone = findValue(row, ['phone', 'phonenumber', 'whatsapp', 'whatsappnumber', 'mobile', 'contact', 'contactnumber', 'mobilenumber', 'phoneno']);
-    const college = findValue(row, ['college', 'university', 'institution', 'school', 'collegename', 'institute']);
-    const track = findValue(row, ['track', 'domain', 'specialization', 'role', 'stream', 'program', 'internshiptrack', 'domainofinterest', 'preferreddomain']);
-    const portfolio_url = findValue(row, ['portfolio', 'portfoliourl', 'github', 'githuburl', 'linkedin', 'website', 'link', 'projectlink', 'resume', 'cv']);
-    const degree = findValue(row, ['degree', 'branch', 'course', 'major', 'qualification', 'department']);
-    const year_of_study = findValue(row, ['year', 'yearofstudy', 'graduationyear', 'batch', 'currentyear']);
+    const full_name = findValue(row, ['fullname', 'name', 'applicantname', 'studentname', 'candidatename', 'yourname', 'whatisyourname']);
+    const email = findValue(row, ['emailaddress', 'email', 'mail', 'candidateemail', 'applicantemail', 'emailid']);
+    const phone = findValue(row, ['phonenumber', 'whatsappnumber', 'phone', 'whatsapp', 'mobile', 'mobilenumber', 'contact', 'contactnumber', 'phoneno']);
+    const college = findValue(row, ['college', 'university', 'institution', 'institute', 'school', 'collegename', 'campus']);
+    const track = findValue(row, ['internshiptrack', 'track', 'domainofinterest', 'preferreddomain', 'domain', 'specialization', 'stream', 'course', 'program']);
+    const portfolio_url = findValue(row, ['github', 'portfolio', 'portfoliourl', 'behance', 'linkedin', 'githuburl', 'website', 'link', 'projectlink', 'resume', 'cv']);
+    const degree = findValue(row, ['degree', 'branch', 'qualification', 'major', 'department', 'course']);
+    const year_of_study = findValue(row, ['yearofstudy', 'currentyear', 'graduationyear', 'year', 'batch', 'status']);
 
     return {
       full_name,
@@ -133,8 +147,10 @@ async function processSync(sheetUrlToUse?: string, rawCsvInput?: string) {
     totalRows: rows.length,
     validCandidates: normalizedCandidates.length,
     insertedCount: result.inserted.length,
+    updatedCount: result.updated?.length || 0,
     skippedCount: result.skippedEmails.length,
     inserted: result.inserted,
+    updated: result.updated || [],
   };
 }
 
