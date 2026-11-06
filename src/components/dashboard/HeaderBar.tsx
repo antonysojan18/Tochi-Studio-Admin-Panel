@@ -339,7 +339,7 @@ export const HeaderBar: React.FC<HeaderBarProps> = ({
               )}
             </div>
 
-            {/* Quick Actions & 30s Live Auto-Refresh Status */}
+            {/* Quick Actions */}
             <div className="flex items-center gap-2 shrink-0">
               {/* Sync Now Button */}
               <button
@@ -352,15 +352,6 @@ export const HeaderBar: React.FC<HeaderBarProps> = ({
                 <RefreshCw className={`h-3.5 w-3.5 ${isSyncing ? 'animate-spin' : ''}`} />
                 <span>{isSyncing ? 'Syncing...' : 'Sync Now'}</span>
               </button>
-
-              {/* 30s Live Refresh Indicator */}
-              <div 
-                className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-white/10 border border-white/15 text-[11px] font-mono text-[#FAF6F0]/85 select-none"
-                title="Continuous background sync runs every 30 seconds"
-              >
-                <span className="h-2 w-2 rounded-full bg-emerald-400 animate-pulse" />
-                <span className="hidden sm:inline">30s live sync</span>
-              </div>
             </div>
           </div>
 

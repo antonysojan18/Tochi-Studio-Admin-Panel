@@ -21,15 +21,18 @@ function loadLocalStore(): Fellow[] {
   try {
     if (fs.existsSync(DATA_FILE)) {
       const raw = fs.readFileSync(DATA_FILE, 'utf-8');
-      memoryFellows = JSON.parse(raw);
-      return memoryFellows || INITIAL_FELLOWS;
+      const parsed = JSON.parse(raw);
+      if (Array.isArray(parsed)) {
+        memoryFellows = parsed;
+        return memoryFellows;
+      }
     }
   } catch (err) {
-    console.warn('[FellowsService] Error reading local data file, falling back to initial data', err);
+    console.warn('[FellowsService] Error reading local data file:', err);
   }
 
-  // First time initialization
-  memoryFellows = [...INITIAL_FELLOWS];
+  // First time initialization: completely empty array (no mock candidates)
+  memoryFellows = [];
   saveLocalStore(memoryFellows);
   return memoryFellows;
 }
@@ -58,12 +61,12 @@ export async function getAllFellows(): Promise<Fellow[]> {
         .select('*')
         .order('created_at', { ascending: false });
 
+      if (!error && Array.isArray(data)) {
+        return data as Fellow[];
+      }
       if (error) {
         console.error('[FellowsService] Supabase select error:', error);
         return loadLocalStore();
-      }
-      if (data && data.length > 0) {
-        return data as Fellow[];
       }
     } catch (err) {
       console.error('[FellowsService] Supabase exception:', err);
@@ -242,15 +245,13 @@ export async function deleteFellow(id: string): Promise<boolean> {
 
   if (supabase && isSupabaseConfigured) {
     try {
-      const { error } = await supabase
-        .from('fellows')
-        .delete()
-        .eq('id', id);
-
-      if (!error) {
-        deletedFromSupabase = true;
+      const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id);
+      if (isUuid) {
+        const { error } = await supabase.from('fellows').delete().eq('id', id);
+        if (!error) deletedFromSupabase = true;
       } else {
-        console.error('[FellowsService] Supabase delete error:', error);
+        const { error } = await supabase.from('fellows').delete().eq('student_id', id);
+        if (!error) deletedFromSupabase = true;
       }
     } catch (err) {
       console.error('[FellowsService] Supabase delete exception:', err);
@@ -260,12 +261,9 @@ export async function deleteFellow(id: string): Promise<boolean> {
   // Also remove from local store
   const local = loadLocalStore();
   const filtered = local.filter(f => f.id !== id && f.student_id !== id);
-  const wasFoundLocally = filtered.length !== local.length;
-  if (wasFoundLocally) {
-    saveLocalStore(filtered);
-  }
+  saveLocalStore(filtered);
 
-  return deletedFromSupabase || wasFoundLocally;
+  return true;
 }
 
 /**
