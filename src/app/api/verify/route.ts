@@ -1,6 +1,16 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getFellowByVerifyHash } from '@/lib/fellows-service';
 
+const corsHeaders = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Methods': 'GET, OPTIONS',
+  'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+};
+
+export async function OPTIONS() {
+  return new NextResponse(null, { status: 204, headers: corsHeaders });
+}
+
 export async function GET(req: NextRequest) {
   try {
     const { searchParams } = new URL(req.url);
@@ -9,7 +19,7 @@ export async function GET(req: NextRequest) {
     if (!hashOrId) {
       return NextResponse.json(
         { success: false, error: 'hash or id query parameter required' },
-        { status: 400 }
+        { status: 400, headers: corsHeaders }
       );
     }
 
@@ -17,7 +27,7 @@ export async function GET(req: NextRequest) {
     if (!fellow) {
       return NextResponse.json(
         { success: false, error: 'No matching verified fellowship record found' },
-        { status: 404 }
+        { status: 404, headers: corsHeaders }
       );
     }
 
@@ -36,11 +46,11 @@ export async function GET(req: NextRequest) {
         has_certificate: fellow.status === 'CERTIFIED',
         has_offer: Boolean(fellow.status !== 'APPLIED'),
       },
-    });
+    }, { headers: corsHeaders });
   } catch (error: any) {
     return NextResponse.json(
       { success: false, error: error.message || 'Verification lookup failed' },
-      { status: 500 }
+      { status: 500, headers: corsHeaders }
     );
   }
 }

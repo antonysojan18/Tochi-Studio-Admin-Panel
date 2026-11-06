@@ -112,7 +112,7 @@ export async function getFellowByVerifyHash(hashOrId: string): Promise<Fellow | 
       const { data, error } = await supabase
         .from('fellows')
         .select('*')
-        .or(`qr_verify_hash.eq.${clean},student_id.eq.${clean}`)
+        .or(`qr_verify_hash.eq.${clean},student_id.eq.${clean},student_id.ilike.${clean}`)
         .maybeSingle();
 
       if (!error && data) return data as Fellow;
@@ -122,7 +122,12 @@ export async function getFellowByVerifyHash(hashOrId: string): Promise<Fellow | 
   }
 
   const all = loadLocalStore();
-  return all.find(f => f.qr_verify_hash === clean || f.student_id === clean) || null;
+  const lower = clean.toLowerCase();
+  return all.find(f => 
+    (f.qr_verify_hash && f.qr_verify_hash.toLowerCase() === lower) || 
+    (f.student_id && f.student_id.toLowerCase() === lower) ||
+    (f.id && f.id.toLowerCase() === lower)
+  ) || null;
 }
 
 /**
